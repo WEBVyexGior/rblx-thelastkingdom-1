@@ -29,7 +29,7 @@ Common commands:
 - `rojo build default.project.json -o KingdomHub.rbxlx` — build the Hub place file.
 - `rojo build world.project.json -o ForgottenLands.rbxlx` — build the Forgotten Lands place file.
 
-There are no lint/test commands yet — no `selene`/`stylua` config or test runner has been added. Add them here once introduced.
+There is no lint config yet (no `selene`/`stylua`). A minimal, dependency-free **test runner** exists for the pure domain modules: in the Studio command bar (server context) run `require(game:GetService("TestService").Tests.TestRunner).run()` — it executes every `TestService.Tests.*.spec` ModuleScript and prints a PASS/FAIL summary. Add `selene`/`stylua` here once introduced.
 
 ### Project mapping
 

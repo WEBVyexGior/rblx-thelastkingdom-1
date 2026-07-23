@@ -11,8 +11,9 @@
 
 ## Phase 2 wrap-up
 - [ ] Expand `docs/Story.md` (currently only the vision in GDD §1)
-- [ ] Add a test harness for the pure domain modules (Match state machine, Party rules,
-      ProfileSchema) — Architecture §10; pick a runner (e.g. TestEZ) and record it in `CLAUDE.md`.
+- [x] Add a test harness for the pure domain modules (Match state machine, Party rules,
+      ProfileSchema) — Architecture §10. Uses a dependency-free `TestService.Tests.TestRunner`
+      (swappable for TestEZ later); run command documented in `CLAUDE.md`.
 - [ ] Decide whether sensitive configs (`Loot`, `Economy`) move to a server-only location
       before real values land (flagged in `configs/README.md`).
 
