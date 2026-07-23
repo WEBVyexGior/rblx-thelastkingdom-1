@@ -1,0 +1,41 @@
+{
+  "name": "TheLastKingdom",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "scripts/Shared"
+      },
+      "Modules": {
+        "$path": "scripts/Modules"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "scripts/Server"
+      }
+    },
+    "ServerStorage": {
+      "Models": {
+        "$path": "models"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "scripts/Client"
+        }
+      }
+    },
+    "StarterGui": {
+      "UI": {
+        "$path": "ui"
+      }
+    },
+    "TestService": {
+      "Tests": {
+        "$path": "scripts/Tests"
+      }
+    }
+  }
+}

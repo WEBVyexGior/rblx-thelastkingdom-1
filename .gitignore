@@ -1,0 +1,7 @@
+# Rojo build output
+*.rbxl
+*.rbxlx
+sourcemap.json
+
+# Aftman-installed binaries
+.aftman/
