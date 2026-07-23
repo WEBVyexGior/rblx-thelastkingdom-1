@@ -1,5 +1,5 @@
 {
-  "name": "TheLastKingdom-KingdomHub",
+  "name": "TheLastKingdom-ForgottenLands",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
@@ -25,14 +25,14 @@
         "Domain": {
           "$path": "scripts/Server/Domain"
         },
-        "Hub": {
-          "$path": "scripts/Server/Hub"
+        "World": {
+          "$path": "scripts/Server/World"
         }
       }
     },
     "ServerStorage": {
       "Models": {
-        "$path": "models/Hub"
+        "$path": "models/World"
       }
     },
     "StarterPlayer": {
@@ -53,7 +53,7 @@
     },
     "StarterGui": {
       "UI": {
-        "$path": "ui/Hub"
+        "$path": "ui/World"
       }
     },
     "TestService": {

@@ -1,24 +1,27 @@
 # Roadmap
 
+Legend: ✅ done · 🚧 in progress · ⬜ not started
+
 Phase 1
-- Planning
-- Story
-- Game Design Document
+- Planning ✅
+- Story 🚧 (vision captured in GDD §1; `docs/Story.md` not yet expanded)
+- Game Design Document ✅
 
 Phase 2
-- Core Systems
+- Core Systems 🚧 (backend framework + services implemented — see Changelog 0.2.0; test
+  harness still to add)
 
 Phase 3
-- Combat
+- Combat ⬜
 
 Phase 4
-- Inventory
+- Inventory ⬜
 
 Phase 5
-- Multiplayer
+- Multiplayer ⬜
 
 Phase 6
-- Polish
+- Polish ⬜
 
 Phase 7
-- Release
+- Release ⬜

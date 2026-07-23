@@ -6,30 +6,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "The Last Kingdom" — a medieval co-op Roblox adventure game (atmosphere, exploration, survival, story). Built in Roblox Studio using Luau. Developer: Cookies11f.
 
-Status: **Planning** — the repository currently contains only design docs and empty scaffolding directories (tracked via `.gitkeep`). No gameplay Luau code has been written yet, but Rojo is configured so the folder structure syncs into Roblox Studio as it's filled in.
+Status: **Phase 2 — Core Systems (in progress).** Phase 1 (design + the dual-place Rojo split) is done. The core backend now exists as code: a two-phase (`Init`→`Start`) service `Loader`, the player/data/save lifecycle, runtime place detection, and the party / match / mission / teleport frameworks — all booting cleanly in both places. Gameplay content (combat, inventory logic, UI, waves) is deliberately deferred to later phases and currently exists as reserved skeletons. Both places build cleanly via Rojo.
 
 ## Rojo
 
 This repo uses [Rojo](https://rojo.space) to sync the filesystem into Roblox Studio. Toolchain is pinned via `aftman.toml`.
 
+### Dual-place structure
+
+The experience is **two Roblox places in one universe**, each with its own project file that
+**shares** the common `scripts/Shared`, `scripts/Modules`, and `configs` folders:
+
+- `default.project.json` — **Kingdom Hub** (the lobby place; bare `rojo serve` targets this).
+- `world.project.json` — **Forgotten Lands** (the gameplay place).
+
+See `docs/Architecture.md` for the full rationale.
+
 Common commands:
 - `aftman install` — install the pinned Rojo version (one-time per machine).
-- `rojo serve` — start the live sync server (default `localhost:34872`); connect via the Rojo Studio plugin.
-- `rojo build -o TheLastKingdom.rbxlx` — build a standalone place file without Studio open.
+- `rojo serve` — live-sync the **Kingdom Hub** (default project); connect via the Rojo Studio plugin.
+- `rojo serve world.project.json` — live-sync the **Forgotten Lands** place.
+- `rojo build default.project.json -o KingdomHub.rbxlx` — build the Hub place file.
+- `rojo build world.project.json -o ForgottenLands.rbxlx` — build the Forgotten Lands place file.
 
 There are no lint/test commands yet — no `selene`/`stylua` config or test runner has been added. Add them here once introduced.
 
-### `default.project.json` mapping
+### Project mapping
+
+Shared by **both** places:
 
 | Folder | Studio location |
 |---|---|
 | `scripts/Shared` | `ReplicatedStorage.Shared` |
 | `scripts/Modules` | `ReplicatedStorage.Modules` |
-| `scripts/Server` | `ServerScriptService.Server` |
-| `scripts/Client` | `StarterPlayer.StarterPlayerScripts.Client` |
+| `configs` | `ReplicatedStorage.Config` |
+| `scripts/Server/Core` | `ServerScriptService.Server.Core` |
+| `scripts/Server/Services` | `ServerScriptService.Server.Services` (lifecycle-booted) |
+| `scripts/Server/Domain` | `ServerScriptService.Server.Domain` (classes/data — not booted) |
+| `scripts/Client/Core` | `StarterPlayer.StarterPlayerScripts.Client.Core` |
+| `scripts/Client/Controllers` | `StarterPlayer.StarterPlayerScripts.Client.Controllers` |
+| `scripts/Client/UI` | `StarterPlayer.StarterPlayerScripts.Client.UI` |
 | `scripts/Tests` | `TestService.Tests` |
-| `models` | `ServerStorage.Models` |
-| `ui` | `StarterGui.UI` |
+
+Place-specific:
+
+| Folder | Studio location | Place |
+|---|---|---|
+| `scripts/Server/Hub` | `ServerScriptService.Server.Hub` | Kingdom Hub only |
+| `scripts/Server/World` | `ServerScriptService.Server.World` | Forgotten Lands only |
+| `models/Hub` / `models/World` | `ServerStorage.Models` | per place |
+| `ui/Hub` / `ui/World` | `StarterGui.UI` | per place |
 
 `assets/` (Animations, Audio, Icons, Images, VFX) and `sound/` are **not** synced by Rojo — they hold raw media/reference files (source images, audio, animation data) that get uploaded to Roblox manually via Studio's Asset Manager. Once uploaded, reference the resulting `rbxassetid://` in a `scripts/Shared` or `scripts/Modules` ModuleScript rather than syncing the raw file as an instance.
 
