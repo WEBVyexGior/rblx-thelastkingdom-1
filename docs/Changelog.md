@@ -1,5 +1,30 @@
 # Changelog
 
+## Version 0.3.0 — Phase 3: Combat Foundation
+
+The server-authoritative combat core for the Forgotten Lands (no weapons, enemies, or
+balancing values — foundation only):
+
+- **CombatService** (`Server/World`, Forgotten Lands only): the single authoritative damage
+  entry point. Owns an entity registry (id ↔ entity, model ↔ entity for hit lookup),
+  validates every hit (alive / i-frames / faction), resolves through the pipeline, applies it,
+  and emits `DamageDealt` / `EntityDied` signals.
+- **Damage system**: `DamagePipeline` — a pure, ordered modifier chain (empty by default) so
+  armor, resistances, crits, and abilities extend it later without touching the core.
+- **Entity / target handling**: `CombatEntity` — a generic combatant (players, undead,
+  animals, bosses, NPCs, traps all share it) with faction, stats, and i-frames; instance→entity
+  resolution walks a hit part up to its registered model.
+- **Health system**: `Health` — server-authoritative current/max with clamping, latched death,
+  and `Changed` / `Died` signals; decoupled from Humanoids/replication.
+- **Shared contract**: `Combat.Enums` (DamageType, Faction, CombatState) and `Combat.Types`;
+  plus a minimal `Core/Signal` primitive.
+- **Config structure** (schemas only, no values): new `Combat.luau`; enriched `Weapons.luau`
+  and `Enemies.luau` schemas (generic — enemy *archetype* is data, not a faction).
+- **Tests**: `Health`, `CombatEntity`, `DamagePipeline` specs via the existing runner.
+
+No new remotes this phase — the client-facing bridge is added with the HUD/VFX feature. No
+Phase 2 systems changed.
+
 ## Version 0.2.0 — Phase 2: Core Systems
 
 The server/client backend framework is implemented (no gameplay content yet — see the

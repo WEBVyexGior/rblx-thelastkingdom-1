@@ -21,6 +21,11 @@
 - [ ] Lock the GDD §21 open questions (revive economy, resource-on-death, combat model, world
       structure, wave triggering, extraction, party persistence, hub depth).
 
-## Next (Phase 3 — Combat)
-- [ ] Author `configs` values (Enemies, Weapons, Waves, Difficulty).
-- [ ] Design the combat model (GDD §8).
+## Phase 3 — Combat (in progress)
+- [x] Combat foundation: server-authoritative core (`CombatService`, `Health`, `CombatEntity`,
+      `DamagePipeline`), factions, i-frames, damage types — see Changelog 0.3.0 & `Mechanics.md`.
+- [x] Combat / Weapon / Enemy config *structure* (schemas only, no values).
+- [ ] Author real combat / weapon / enemy balancing values.
+- [ ] Melee combat model + weapon swing input (client intent → server-validated `RequestAttack`).
+- [ ] Bind players & enemies as `CombatEntity`s (Humanoid adapter).
+- [ ] Client hit / health feedback (bridge `CombatService` signals → `RemoteEvent` → HUD/VFX).

@@ -12,7 +12,8 @@ Phase 2
   harness still to add)
 
 Phase 3
-- Combat ⬜
+- Combat 🚧 (foundation: server-authoritative combat core implemented — see Changelog 0.3.0;
+  weapons, enemies, abilities, and balancing values deferred)
 
 Phase 4
 - Inventory ⬜

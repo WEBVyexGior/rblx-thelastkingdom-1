@@ -41,6 +41,7 @@ designers edit heavily may migrate to `.json` later (Rojo can sync JSON as a mod
 
 | File | Domain | Phase values are authored |
 |---|---|---|
+| `Combat.luau` | Global combat rules (factions, crits, i-frames, resistances) | Combat |
 | `Enemies.luau` | Enemy/elite/boss base stats | Combat |
 | `Weapons.luau` | Weapon definitions | Combat |
 | `Economy.luau` | Currencies, upgrade costs, anti-P2W revive | Progression / Monetization |
