@@ -114,7 +114,28 @@ unchanged apart from one additive read accessor (`getAllEntities`).
 `starter_sword` (Weapons), `training_dummy` (Enemies), and the `Combat` block +
 `EnableCombatTestDummies` flag (Settings) are **TEST placeholders**, not balanced values.
 
+## Equipment → combat (Phase 4)
+
+The melee system no longer hard-codes a weapon. On attack it resolves the attacker's
+**equipped** weapon and reads its stats from `configs/Weapons`:
+
+```
+MeleeCombatService.onAttack(player)
+  └─ EquipmentService.getEquippedWeaponId(player)   -- MainHand item -> WeaponId
+       └─ configs/Weapons[weaponId]                 -- Damage / Range / Arc / Cooldown / DamageType
+            └─ (same validation -> hit detection -> CombatService.applyDamage)
+```
+
+- `configs/Items` defines items (a weapon item carries `Category = "Weapon"`, `Slot =
+  "MainHand"`, and a `WeaponId`). `Inventory` / `Equipment` (domain) plus `InventoryService` /
+  `EquipmentService` (shared) own the item instances and equipped slots.
+- `PlayerCombatService` grants + equips a starter weapon on entering the World (dev flag), so
+  the slice is armed through the equipment system. `CombatService` is untouched.
+- Inventory/equipment state is per-player in-memory for now; profile persistence, an inventory
+  UI, loot, and crafting are later phases.
+
 ## Not built yet (by design)
 
-Inventory, real weapon/enemy content, balanced values, enemy AI, waves, abilities, ranged
-combat, animations, and hit/health VFX & HUD. Tracked in `docs/Todo.md`.
+Inventory UI / loadout interface, loot, crafting, shops, item stacking, profile persistence of
+items, real weapon/enemy content, balanced values, enemy AI, waves, abilities, ranged combat,
+animations, and hit/health VFX & HUD. Tracked in `docs/Todo.md`.

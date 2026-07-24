@@ -5,16 +5,17 @@
 	server-authoritative melee swing flow:
 
 	  client fires RequestMeleeAttack (intent + aim)
+	    -> resolve the attacker's EQUIPPED weapon (via EquipmentService)
 	    -> validate: attacker exists & alive, swing cooldown
 	    -> server-side hit detection: enemy entities within range AND swing arc
 	    -> CombatService.applyDamage for each valid target
 	    -> broadcast a CombatEvent for (minimal) client feedback
 
 	The client never says who was hit or how much — the server decides everything.
-	The weapon is a single default/starter (no inventory yet); its stats are TEST
-	placeholders read from configs/Weapons.
+	The weapon is whatever the player has equipped in their MainHand; its stats are
+	read from configs/Weapons. There is NO hard-coded weapon here.
 
-	Place: Forgotten Lands ONLY (Server/World). Phase: Combat (vertical slice).
+	Place: Forgotten Lands ONLY (Server/World). Phase: Combat + Inventory.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Server = script.Parent.Parent
 local CombatService = require(script.Parent.CombatService)
 local CombatEntity = require(Server.Domain.Combat.CombatEntity)
+local EquipmentService = require(Server.Services.EquipmentService)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Constants = require(ReplicatedStorage.Shared.Constants)
@@ -43,13 +45,15 @@ type WeaponStats = {
 }
 
 local lastSwing: { [Player]: number } = {}
-local weapon: WeaponStats? = nil
 local combatEvent: RemoteEvent? = nil
 
-local function loadDefaultWeapon(): WeaponStats
-	local settings = Config.get("Settings")
+-- Reads combat stats for a weapon definition id from the Weapons config.
+local function resolveWeaponStats(weaponId: string): WeaponStats?
 	local weapons = Config.get("Weapons")
-	local def = weapons[settings.Combat.DefaultMeleeWeaponId]
+	local def = weapons[weaponId]
+	if not def then
+		return nil
+	end
 	return {
 		Damage = def.Damage,
 		Range = def.Range,
@@ -89,12 +93,22 @@ function MeleeCombatService.resolveHits(
 end
 
 local function onAttack(player: Player, aim: any)
-	if not weapon or not combatEvent then
+	if not combatEvent then
 		return
 	end
 
 	local attacker = CombatService.getEntity(playerEntityId(player))
 	if not attacker or not attacker:isAlive() then
+		return
+	end
+
+	-- Weapon comes from the player's equipped MainHand — not a hard-coded id.
+	local weaponId = EquipmentService.getEquippedWeaponId(player)
+	if not weaponId then
+		return -- unarmed
+	end
+	local weapon = resolveWeaponStats(weaponId)
+	if not weapon then
 		return
 	end
 
@@ -141,6 +155,7 @@ local function onAttack(player: Player, aim: any)
 	combatEvent:FireAllClients({
 		kind = "MeleeSwing",
 		attackerId = attacker.id,
+		weaponId = weaponId,
 		hits = results,
 	})
 end
@@ -148,7 +163,6 @@ end
 function MeleeCombatService.Init() end
 
 function MeleeCombatService.Start()
-	weapon = loadDefaultWeapon()
 	combatEvent = Net.getEvent("CombatEvent")
 
 	local requestAttack = Net.getEvent("RequestMeleeAttack")

@@ -16,7 +16,8 @@ Phase 3
   real weapons, enemies, AI, waves, and balancing values deferred)
 
 Phase 4
-- Inventory ⬜
+- Inventory 🚧 (foundation: item/inventory/equipment services + equipment→combat wiring —
+  see Changelog 0.4.0; UI, loot, crafting, shops, and persistence deferred)
 
 Phase 5
 - Multiplayer ⬜

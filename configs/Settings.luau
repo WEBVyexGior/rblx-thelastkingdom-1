@@ -18,11 +18,14 @@ local Settings = {
 		-- DEV/TEST: auto-spawn a training dummy in the World place so the combat
 		-- vertical slice is immediately playable. Turn off before real content.
 		EnableCombatTestDummies = true,
+		-- DEV/TEST: grant + equip a starter weapon when a player enters the World,
+		-- so melee works via the equipment system without an inventory UI yet.
+		GrantStarterWeapon = true,
 	},
 
 	-- TEST placeholders for the combat vertical slice — NOT balanced values.
 	Combat = {
-		DefaultMeleeWeaponId = "starter_sword",
+		StarterWeaponItemId = "starter_sword", -- item id the starter kit grants + equips
 		PlayerMaxHealth = 100,
 		TestDummy = {
 			Count = 1,

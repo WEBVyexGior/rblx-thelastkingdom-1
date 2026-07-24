@@ -1,5 +1,27 @@
 # Changelog
 
+## Version 0.4.0 — Phase 4: Inventory & Equipment Foundation
+
+The item / inventory / equipment base, wired into the combat slice (no UI, loot, crafting,
+shops, or balancing):
+
+- **Items config**: `configs/Items.luau` — the item catalog (structure/metadata). Weapon
+  items link to their combat stats in `Weapons.luau` via `WeaponId`.
+- **Domain**: `Inventory` (item instances, uids, capacity) and `Equipment` (per-slot equipped
+  instances) — pure classes in `Server/Domain/Inventory`.
+- **Services** (`Server/Services`, shared): `InventoryService` (fleshed out from its skeleton
+  — add/remove/get, item-id validation) and new `EquipmentService` (equip/unequip, plus
+  `getEquippedWeaponId` for the combat layer). Per-player in-memory state; profile
+  serialization is a deferred follow-up.
+- **Shared contract**: `Shared/Inventory` `Enums` (ItemCategory, EquipmentSlot) and `Types`.
+- **Combat connection**: `MeleeCombatService` now reads the attacker's **equipped** MainHand
+  weapon (no hard-coded `starter_sword`); `PlayerCombatService` grants + equips a starter
+  weapon on entering the World (dev flag). Weapon stats still come from `configs/Weapons`.
+- **Tests**: `Inventory` and `Equipment` domain specs.
+
+`CombatService` and the authoritative combat flow (validation, hit detection, `applyDamage`)
+are unchanged — only the melee weapon *source* moved to equipment.
+
 ## Version 0.3.1 — Phase 3: Combat Vertical Slice
 
 Wires the combat foundation to real gameplay end-to-end (player swing → server validation →

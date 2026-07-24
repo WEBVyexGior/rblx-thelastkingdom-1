@@ -29,6 +29,15 @@
       (`PlayerCombatService`, `EnemyService`, `MeleeCombatService`, `HumanoidAdapter`,
       `CombatController`). TEST placeholders only — see Changelog 0.3.1.
 - [ ] Author real combat / weapon / enemy balancing values.
-- [ ] Real weapon models/animations + inventory-driven weapon selection.
+- [ ] Real weapon models/animations (a visible equipped weapon).
 - [ ] Client hit/health VFX & HUD (build on the `CombatEvent` bridge).
 - [ ] Enemy AI, config-driven spawning, and waves (build on generic `EnemyService`; `ZombieService`).
+
+## Phase 4 — Inventory & Equipment (in progress)
+- [x] Item config structure (`configs/Items.luau`) + `Shared/Inventory` Enums/Types.
+- [x] `Inventory` & `Equipment` domain classes (+ specs).
+- [x] `InventoryService` (fleshed out) & `EquipmentService` (add/remove/equip/unequip).
+- [x] Melee reads the equipped weapon (no hard-coded `starter_sword`); starter kit grants + equips it.
+- [ ] Serialize inventory/equipment into the persistent Profile (`ProfileSchema`).
+- [ ] Inventory/equipment UI + client interface (loadout in the Hub).
+- [ ] Loot, crafting, shops, item stacking — later phases.
