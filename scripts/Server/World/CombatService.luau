@@ -88,6 +88,16 @@ function CombatService.getEntityByInstance(instance: Instance): CombatEntity.Com
 	return nil
 end
 
+-- All currently-registered entities. Additive read accessor for area/target
+-- queries (e.g. the melee hit-detection); callers filter as needed.
+function CombatService.getAllEntities(): { CombatEntity.CombatEntity }
+	local result: { CombatEntity.CombatEntity } = {}
+	for _, entity in entities do
+		table.insert(result, entity)
+	end
+	return result
+end
+
 -- Appends a damage modifier to the pipeline (armor, resistances, crits, ...).
 function CombatService.registerModifier(modifier: DamagePipeline.Modifier)
 	table.insert(modifiers, modifier)

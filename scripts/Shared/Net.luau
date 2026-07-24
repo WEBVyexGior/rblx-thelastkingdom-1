@@ -12,10 +12,9 @@
 		- Client and server both fetch a remote via `Net.getEvent(name)` /
 		  `Net.getFunction(name)`, which resolves it from that folder.
 
-	Phase 1 declares ZERO remotes on purpose: nothing in the current architecture
-	needs one yet, and we do not create unnecessary instances. Each later feature
-	adds its remote name here (and only here), and the server validates every
-	incoming call — clients send intent, the server decides.
+	A remote name is declared only when a feature needs one (and only here). The
+	server validates every incoming call — clients send intent, the server decides.
+	The first remotes belong to the combat vertical slice.
 
 	Location: ReplicatedStorage.Shared.Net
 ]]
@@ -26,8 +25,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local IS_SERVER = RunService:IsServer()
 local FOLDER_NAME = "Remotes"
 
--- Declare remote names here as the architecture grows. Empty by design.
-local EVENT_NAMES: { string } = {}
+-- Declare remote names here as the architecture grows.
+local EVENT_NAMES: { string } = {
+	"RequestMeleeAttack", -- client -> server: melee swing intent (server-validated)
+	"CombatEvent", -- server -> client: combat outcome notifications (hit feedback)
+}
 local FUNCTION_NAMES: { string } = {}
 
 local Net = {}
@@ -67,18 +69,27 @@ if IS_SERVER and (#EVENT_NAMES > 0 or #FUNCTION_NAMES > 0) then
 	end
 end
 
+-- Resolves the Remotes folder. On the server it exists (created above); on the
+-- client it may not have replicated yet, so we wait for it.
+local function resolveFolder(): Instance
+	if IS_SERVER then
+		local folder = getFolder()
+		assert(folder, "Remotes folder is not available")
+		return folder
+	end
+	local folder = ReplicatedStorage:WaitForChild(FOLDER_NAME, 10)
+	assert(folder, "Remotes folder did not replicate")
+	return folder
+end
+
 function Net.getEvent(name: string): RemoteEvent
-	local folder = getFolder()
-	assert(folder, "Remotes folder is not available")
-	local remote = folder:WaitForChild(name, 10)
+	local remote = resolveFolder():WaitForChild(name, 10)
 	assert(remote and remote:IsA("RemoteEvent"), "Missing RemoteEvent: " .. name)
 	return remote
 end
 
 function Net.getFunction(name: string): RemoteFunction
-	local folder = getFolder()
-	assert(folder, "Remotes folder is not available")
-	local remote = folder:WaitForChild(name, 10)
+	local remote = resolveFolder():WaitForChild(name, 10)
 	assert(remote and remote:IsA("RemoteFunction"), "Missing RemoteFunction: " .. name)
 	return remote
 end

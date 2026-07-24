@@ -74,7 +74,47 @@ Any later source — a weapon swing, a projectile, an ability, a trap, an enviro
 - `configs/Enemies.luau` — enemy schema (faction, archetype, health, stats, damage type,
   resistances, tier, abilities).
 
+## Vertical slice (Phase 3 expansion)
+
+The foundation is wired to real gameplay end-to-end — **player swings → server validates →
+enemy takes damage → dies** — with no inventory, AI, waves, VFX, or balanced values.
+
+| Module | Location | Role |
+|---|---|---|
+| `PlayerCombatService` | `Server/World` | Registers each player's character as a CombatEntity (Players) on spawn; unbinds on death/leave. |
+| `EnemyService` | `Server/World` | Generic enemy layer: spawns/registers enemies (Enemies); ships a TEST training dummy behind a flag. |
+| `MeleeCombatService` | `Server/World` | First attack source: validates the swing and runs server-side range + arc hit detection. |
+| `HumanoidAdapter` | `Server/Domain/Combat` | Mirrors the authoritative `Health` onto a character `Humanoid` (Health is source of truth). |
+| `CombatController` | `Client/Controllers` | Sends the swing intent and reacts to `CombatEvent`. |
+
+### Melee flow (server-authoritative)
+
+```
+client click ─► RequestMeleeAttack (intent + aim) ─► MeleeCombatService
+                                                       │ attacker alive? swing cooldown?
+                                                       │ hit detection: range + arc (server)
+                                                       ▼
+                                                     CombatService.applyDamage(...)  (core unchanged)
+                                                       ▼
+                                     CombatEvent ◄──── DamageDealt ─► client feedback (minimal)
+```
+
+The client sends **only** intent (+ an aim direction the server re-validates); it never picks
+targets or damage. Targets are enemy entities within the weapon's range and swing arc,
+computed on the server from the attacker's position and facing.
+
+### First remotes
+
+`Shared/Net` declares its first two remotes here — `RequestMeleeAttack` (client → server,
+server-validated) and `CombatEvent` (server → client). The generic `CombatService` core is
+unchanged apart from one additive read accessor (`getAllEntities`).
+
+### Test scaffolding
+
+`starter_sword` (Weapons), `training_dummy` (Enemies), and the `Combat` block +
+`EnableCombatTestDummies` flag (Settings) are **TEST placeholders**, not balanced values.
+
 ## Not built yet (by design)
 
-Real weapons, enemies/zombies, waves, abilities, animations, VFX, balancing values, the
-client attack/HUD path, and player/enemy Humanoid binding. Tracked in `docs/Todo.md`.
+Inventory, real weapon/enemy content, balanced values, enemy AI, waves, abilities, ranged
+combat, animations, and hit/health VFX & HUD. Tracked in `docs/Todo.md`.

@@ -25,7 +25,10 @@
 - [x] Combat foundation: server-authoritative core (`CombatService`, `Health`, `CombatEntity`,
       `DamagePipeline`), factions, i-frames, damage types — see Changelog 0.3.0 & `Mechanics.md`.
 - [x] Combat / Weapon / Enemy config *structure* (schemas only, no values).
+- [x] Combat vertical slice: player swing → server validation → enemy damage → death
+      (`PlayerCombatService`, `EnemyService`, `MeleeCombatService`, `HumanoidAdapter`,
+      `CombatController`). TEST placeholders only — see Changelog 0.3.1.
 - [ ] Author real combat / weapon / enemy balancing values.
-- [ ] Melee combat model + weapon swing input (client intent → server-validated `RequestAttack`).
-- [ ] Bind players & enemies as `CombatEntity`s (Humanoid adapter).
-- [ ] Client hit / health feedback (bridge `CombatService` signals → `RemoteEvent` → HUD/VFX).
+- [ ] Real weapon models/animations + inventory-driven weapon selection.
+- [ ] Client hit/health VFX & HUD (build on the `CombatEvent` bridge).
+- [ ] Enemy AI, config-driven spawning, and waves (build on generic `EnemyService`; `ZombieService`).

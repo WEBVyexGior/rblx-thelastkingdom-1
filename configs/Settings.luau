@@ -14,7 +14,21 @@
 ]]
 
 local Settings = {
-	FeatureFlags = {},
+	FeatureFlags = {
+		-- DEV/TEST: auto-spawn a training dummy in the World place so the combat
+		-- vertical slice is immediately playable. Turn off before real content.
+		EnableCombatTestDummies = true,
+	},
+
+	-- TEST placeholders for the combat vertical slice — NOT balanced values.
+	Combat = {
+		DefaultMeleeWeaponId = "starter_sword",
+		PlayerMaxHealth = 100,
+		TestDummy = {
+			Count = 1,
+			SpawnOffset = 12, -- studs in front of the origin
+		},
+	},
 }
 
 return table.freeze(Settings)

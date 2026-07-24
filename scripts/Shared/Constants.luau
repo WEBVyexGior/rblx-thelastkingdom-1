@@ -35,4 +35,10 @@ Constants.PlaceRole = table.freeze({
 -- How often SaveService flushes cached profiles to the persistence backend.
 Constants.AUTOSAVE_INTERVAL_SECONDS = 120
 
+-- Stable id prefixes for combat entities (identifiers, not balancing).
+Constants.CombatId = table.freeze({
+	PlayerPrefix = "player_",
+	EnemyPrefix = "enemy_",
+})
+
 return table.freeze(Constants)

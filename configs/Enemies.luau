@@ -5,7 +5,8 @@
 	difficulty/party scaling is applied.
 
 	Read via: Config.get("Enemies")
-	Structure below is the Combat-phase schema; NO real enemies or values yet.
+	The only entry is a TEST placeholder for the vertical slice (`training_dummy`) —
+	not a real or balanced enemy.
 
 	Generic by design: `Archetype` distinguishes undead / animal / boss / npc /
 	construct content — it is NOT a faction (all hostiles share the Enemies faction).
@@ -25,7 +26,18 @@
 ]]
 
 local Enemies = {
-	-- Add enemy definitions here.
+	-- TEST placeholder target for the combat vertical slice — NOT balanced values.
+	training_dummy = {
+		DisplayName = "Training Dummy",
+		Faction = "Enemies",
+		Archetype = "Construct",
+		MaxHealth = 100,
+		Stats = {},
+		DamageType = "Physical",
+		Resistances = {},
+		Tier = "Standard",
+		Abilities = {},
+	},
 }
 
 return table.freeze(Enemies)

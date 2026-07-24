@@ -12,8 +12,8 @@ Phase 2
   harness still to add)
 
 Phase 3
-- Combat 🚧 (foundation: server-authoritative combat core implemented — see Changelog 0.3.0;
-  weapons, enemies, abilities, and balancing values deferred)
+- Combat 🚧 (foundation + vertical slice implemented — see Changelog 0.3.0 / 0.3.1;
+  real weapons, enemies, AI, waves, and balancing values deferred)
 
 Phase 4
 - Inventory ⬜

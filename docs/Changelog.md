@@ -1,5 +1,27 @@
 # Changelog
 
+## Version 0.3.1 — Phase 3: Combat Vertical Slice
+
+Wires the combat foundation to real gameplay end-to-end (player swing → server validation →
+enemy damage → death). No inventory, AI, waves, VFX, animations, or balanced values:
+
+- **Player → CombatEntity**: `PlayerCombatService` (World) registers each player's character
+  as a CombatEntity on spawn; `HumanoidAdapter` mirrors the authoritative `Health` onto the
+  character's `Humanoid` (Health stays source of truth).
+- **Enemy → CombatEntity**: `EnemyService` (World, generic for undead/animals/bosses/NPCs)
+  spawns and registers enemies; ships a TEST training dummy behind `EnableCombatTestDummies`.
+- **Server-authoritative melee**: `MeleeCombatService` validates the swing (attacker alive,
+  per-player cooldown), performs server-side range + arc hit detection, and applies damage
+  via `CombatService`. The client sends only intent + aim — never targets or damage.
+- **First remotes**: `Shared/Net` declares `RequestMeleeAttack` (client→server, validated)
+  and `CombatEvent` (server→client feedback); `CombatController` (client) sends the intent.
+- **Additive only**: `CombatService` gained one read accessor (`getAllEntities`); `Net` now
+  waits for the Remotes folder on the client so lookups are replication-safe.
+- **TEST placeholders**: `starter_sword` (Weapons), `training_dummy` (Enemies), and the
+  `Combat` block/flags (Settings) — not balanced values.
+
+`ZombieService` untouched (stays the future undead-content layer over the generic `EnemyService`).
+
 ## Version 0.3.0 — Phase 3: Combat Foundation
 
 The server-authoritative combat core for the Forgotten Lands (no weapons, enemies, or
