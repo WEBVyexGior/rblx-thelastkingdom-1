@@ -69,6 +69,15 @@ When acting on this repo, behave as the Lead Roblox Developer:
 - Prefer ModuleScripts over plain Scripts/LocalScripts wherever possible.
 - Avoid unnecessary complexity — every system should work independently of the others.
 
+## Phase Workflow
+
+When a phase is completed, follow this checklist in order:
+
+1. **Commit** the phase as its own separate commit (clear message; never mix phases in one commit).
+2. **Verify** — `rojo build default.project.json` and `rojo build world.project.json` both build clean; run the type-check when available (`luau-lsp analyze`); and confirm the change syncs correctly in Roblox Studio through the Rojo plugin.
+3. **Push** to `origin/main` once verified, then confirm local and remote `main` are in sync.
+4. **Restart Rojo** only at major checkpoints or when a sync problem appears — not routinely.
+
 ## Intended Architecture
 
 ```
