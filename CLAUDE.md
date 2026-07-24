@@ -71,7 +71,16 @@ When acting on this repo, behave as the Lead Roblox Developer:
 
 ## Phase Workflow
 
-When a phase is completed, follow this checklist in order:
+At the **start** of every phase, state up front which place the work targets and the exact command to test it. The two places must never be synced into the same Studio place:
+
+| Place | Project file | Serve command | Studio place file |
+|---|---|---|---|
+| **Kingdom Hub** | `default.project.json` | `rojo serve` | its own `KingdomHub.rbxl` |
+| **Forgotten Lands** | `world.project.json` | `rojo serve world.project.json` | its own `ForgottenLands.rbxl` |
+
+Use **one dedicated place file per project** — never connect a second project into a place already synced from the other, which duplicates the shared `Server` subfolders (Core/Services/Domain). To repoint a place, build a fresh one (`rojo build <project> -o <place>.rbxl`) and open that.
+
+When a phase is **completed**, follow this checklist in order:
 
 1. **Commit** the phase as its own separate commit (clear message; never mix phases in one commit).
 2. **Verify** — `rojo build default.project.json` and `rojo build world.project.json` both build clean; run the type-check when available (`luau-lsp analyze`); and confirm the change syncs correctly in Roblox Studio through the Rojo plugin.
