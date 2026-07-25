@@ -18,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 
 local Server = script.Parent.Parent
 local CombatService = require(script.Parent.CombatService)
+local EnemyAIService = require(script.Parent.EnemyAIService)
 local HumanoidAdapter = require(Server.Domain.Combat.HumanoidAdapter)
 local Enums = require(ReplicatedStorage.Shared.Combat.Enums)
 local Constants = require(ReplicatedStorage.Shared.Constants)
@@ -34,6 +35,8 @@ local bindings: { [string]: HumanoidAdapter.Binding } = {}
 
 -- Height (studs) of the placeholder dummy part; used to rest its feet on the ground.
 local DUMMY_HEIGHT = 5
+-- The Enemies-config key this spawner uses (drives stats + the AI block).
+local ENEMY_ID = "training_dummy"
 
 local function generateId(): string
 	nextId += 1
@@ -67,7 +70,7 @@ end
 -- Returns its entity id.
 function EnemyService.spawnDummy(position: Vector3): string
 	local enemies = Config.get("Enemies")
-	local def = enemies.training_dummy -- TEST placeholder definition
+	local def = enemies[ENEMY_ID] -- TEST placeholder definition
 
 	local model, humanoid = buildDummyRig()
 
@@ -86,7 +89,8 @@ function EnemyService.spawnDummy(position: Vector3): string
 	if hit then
 		groundY = hit.Position.Y
 	end
-	model:PivotTo(CFrame.new(position.X, groundY + DUMMY_HEIGHT / 2, position.Z))
+	local spawnPos = Vector3.new(position.X, groundY + DUMMY_HEIGHT / 2, position.Z)
+	model:PivotTo(CFrame.new(spawnPos))
 	model.Parent = Workspace
 
 	local id = generateId()
@@ -97,6 +101,9 @@ function EnemyService.spawnDummy(position: Vector3): string
 		model = model,
 	})
 	bindings[id] = HumanoidAdapter.bind(entity.health, humanoid)
+
+	-- Give it an AI brain (no-op if the enemy's config has no AI block).
+	EnemyAIService.attach(entity, ENEMY_ID, spawnPos)
 
 	-- Despawn on death (no ragdoll / VFX in this slice).
 	entity.health.Died:connect(function()

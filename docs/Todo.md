@@ -41,3 +41,12 @@
 - [ ] Serialize inventory/equipment into the persistent Profile (`ProfileSchema`).
 - [ ] Inventory/equipment UI + client interface (loadout in the Hub).
 - [ ] Loot, crafting, shops, item stacking — later phases.
+
+## Phase 5 — Enemy AI (in progress)
+- [x] AI state machine (`EnemyBrain`: Idle/Chase/Attack/Return/Dead) + spec.
+- [x] Detection / chase / attack / return, config-driven (`configs/Enemies` AI block).
+- [x] Enemy attacks through the existing `CombatService` (no duplicate combat logic).
+- [ ] Pathfinding / navmesh (currently straight-line kinematic movement).
+- [ ] Enemy spawning system + waves (build on the generic `EnemyService`; `ZombieService`).
+- [ ] Animations, ragdoll, and aggro/hit feedback.
+- [ ] Multiplayer AI throttling / optimisation.

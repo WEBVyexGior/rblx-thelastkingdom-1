@@ -22,6 +22,11 @@
 			Resistances = { [damageType: string]: number },  -- resist multipliers
 			Tier        = "Standard" | "Elite" | "Boss",
 			Abilities   = { string },   -- ability ids (defined in a later phase)
+			AI          = {             -- OPTIONAL; present = the enemy uses the AI brain (Phase 5)
+				DetectionRadius = number, AttackRange = number, LeashRadius = number,
+				ArrivalRadius = number, MoveSpeed = number, AttackCooldown = number,
+				AttackDamage = number, AttackDamageType = string,
+			},
 		}
 ]]
 
@@ -37,6 +42,17 @@ local Enemies = {
 		Resistances = {},
 		Tier = "Standard",
 		Abilities = {},
+		-- AI foundation params (Phase 5) — placeholder tuning, not final balance.
+		AI = {
+			DetectionRadius = 30, -- studs: acquire the player within this
+			AttackRange = 6, -- studs: attack within this
+			LeashRadius = 50, -- studs: give up + return when the target is beyond this
+			ArrivalRadius = 3, -- studs: "home" when this close to spawn
+			MoveSpeed = 10, -- studs/second (kinematic)
+			AttackCooldown = 1.5, -- seconds between attacks
+			AttackDamage = 10,
+			AttackDamageType = "Physical",
+		},
 	},
 }
 

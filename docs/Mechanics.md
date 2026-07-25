@@ -134,8 +134,33 @@ MeleeCombatService.onAttack(player)
 - Inventory/equipment state is per-player in-memory for now; profile persistence, an inventory
   UI, loot, and crafting are later phases.
 
+## Enemy AI (Phase 5)
+
+Enemies think through a small, pure state machine driven each frame by a service:
+
+| Module | Location | Role |
+|---|---|---|
+| `EnemyBrain` | `Server/Domain/AI` | Pure FSM (Idle/Chase/Attack/Return/Dead) — decides state from distances only; testable. |
+| `EnemyAIService` | `Server/World` | Per-`Heartbeat`: perceive (nearest player) → decide (brain) → actuate (kinematic move / attack). |
+
+```
+enemy tick ─► nearest player (CombatService) ─► EnemyBrain.update(distances)
+
+  Idle ──(player within DetectionRadius)──► Chase ──(within AttackRange)──► Attack
+    ▲                                         │                              │
+    └──(within ArrivalRadius)── Return ◄──────┴──(target lost / > LeashRadius)
+                                                Attack ─► CombatService.applyDamage(enemy → player)
+```
+
+- Movement is **straight-line kinematic** (`PivotTo`), no pathfinding — the anchored dummy is
+  translated toward its target/spawn at `MoveSpeed`.
+- Enemy attacks reuse **`CombatService.applyDamage`** (the same authoritative path as player
+  melee): the enemy is the `source`, the player the `target`. No combat logic is duplicated.
+- All ranges / speed / cooldown / damage come from the enemy's `AI` block in `configs/Enemies`
+  (placeholder tuning, not final balance).
+
 ## Not built yet (by design)
 
-Inventory UI / loadout interface, loot, crafting, shops, item stacking, profile persistence of
-items, real weapon/enemy content, balanced values, enemy AI, waves, abilities, ranged combat,
-animations, and hit/health VFX & HUD. Tracked in `docs/Todo.md`.
+Inventory UI / loadout interface, loot, crafting, shops, item stacking, profile persistence,
+real weapon/enemy content, balanced values, enemy spawning system, waves, AI pathfinding,
+bosses, abilities, ranged combat, animations, and hit/health VFX & HUD. Tracked in `docs/Todo.md`.

@@ -20,10 +20,14 @@ Phase 4
   see Changelog 0.4.0; UI, loot, crafting, shops, and persistence deferred)
 
 Phase 5
-- Multiplayer ⬜
+- Enemy AI 🚧 (foundation: state machine + detection / chase / attack / return — see
+  Changelog 0.5.0; waves, spawning system, and pathfinding deferred)
 
 Phase 6
-- Polish ⬜
+- Multiplayer ⬜
 
 Phase 7
+- Polish ⬜
+
+Phase 8
 - Release ⬜

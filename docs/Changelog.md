@@ -1,5 +1,26 @@
 # Changelog
 
+## Version 0.5.0 — Phase 5: Enemy AI Foundation
+
+The enemy AI architecture (foundation only — no waves, spawning system, pathfinding, bosses,
+abilities, or optimisation):
+
+- **EnemyBrain** (`Server/Domain/AI`): a pure, testable state machine — Idle → Chase → Attack
+  → Return → Dead — deciding state from perceived distances only. Easy to extend.
+- **EnemyAIService** (`Server/World`): drives each enemy per `Heartbeat` — perceive (nearest
+  player via `CombatService`) → decide (brain) → actuate. Movement is simple **kinematic**
+  (`PivotTo` toward target/spawn, no pathfinding). Attacks go **through the existing
+  `CombatService.applyDamage`** — no duplicate combat logic.
+- **Config-driven**: detection / attack / leash / arrival radii, move speed, attack cooldown
+  and damage come from a new `AI` block in `configs/Enemies` (placeholder tuning). Nothing is
+  hard-coded.
+- **EnemyService**: one additive `EnemyAIService.attach(...)` call on spawn (no-op for enemies
+  without an `AI` block). The dummy rig is unchanged.
+- **Tests**: `EnemyBrain` spec covering every transition.
+
+`CombatService` is untouched; enemy damage reuses the same authoritative path as the player's
+melee. The training dummy now detects, chases, and attacks the player (and is still killable).
+
 ## Version 0.4.0 — Phase 4: Inventory & Equipment Foundation
 
 The item / inventory / equipment base, wired into the combat slice (no UI, loot, crafting,
