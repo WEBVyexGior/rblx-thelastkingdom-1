@@ -32,6 +32,9 @@ local log = Logger.new("EnemyService")
 local nextId = 0
 local bindings: { [string]: HumanoidAdapter.Binding } = {}
 
+-- Height (studs) of the placeholder dummy part; used to rest its feet on the ground.
+local DUMMY_HEIGHT = 5
+
 local function generateId(): string
 	nextId += 1
 	return Constants.CombatId.EnemyPrefix .. nextId
@@ -45,7 +48,7 @@ local function buildDummyRig(): (Model, Humanoid)
 
 	local root = Instance.new("Part")
 	root.Name = "HumanoidRootPart"
-	root.Size = Vector3.new(2, 5, 1)
+	root.Size = Vector3.new(2, DUMMY_HEIGHT, 1)
 	root.Anchored = true
 	root.Color = Color3.fromRGB(150, 40, 40) -- visible test-target marker (not VFX)
 	root.Parent = model
@@ -67,7 +70,23 @@ function EnemyService.spawnDummy(position: Vector3): string
 	local def = enemies.training_dummy -- TEST placeholder definition
 
 	local model, humanoid = buildDummyRig()
-	model:PivotTo(CFrame.new(position))
+
+	-- Rest the dummy's feet on the ground: raycast down at the spawn XZ and place
+	-- it on whatever it hits (baseplate/terrain), else fall back to the given Y.
+	-- Keeps it from sinking into (or floating above) any baseplate height.
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { model }
+	local groundY = position.Y
+	local hit = Workspace:Raycast(
+		Vector3.new(position.X, position.Y + 200, position.Z),
+		Vector3.new(0, -400, 0),
+		rayParams
+	)
+	if hit then
+		groundY = hit.Position.Y
+	end
+	model:PivotTo(CFrame.new(position.X, groundY + DUMMY_HEIGHT / 2, position.Z))
 	model.Parent = Workspace
 
 	local id = generateId()
