@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "The Last Kingdom" — a medieval co-op Roblox adventure game (atmosphere, exploration, survival, story). Built in Roblox Studio using Luau. Developer: Cookies11f.
 
-Status: **Phase 2 — Core Systems (in progress).** Phase 1 (design + the dual-place Rojo split) is done. The core backend now exists as code: a two-phase (`Init`→`Start`) service `Loader`, the player/data/save lifecycle, runtime place detection, and the party / match / mission / teleport frameworks — all booting cleanly in both places. Gameplay content (combat, inventory logic, UI, waves) is deliberately deferred to later phases and currently exists as reserved skeletons. Both places build cleanly via Rojo.
+Status: **Phases 2–5 — foundations implemented (in progress).** Phase 1 (design + the dual-place Rojo split) is done. The Phase 2 backend framework is in place: a two-phase (`Init`→`Start`) service `Loader`, the player/data/save lifecycle over a **mocked in-memory store**, runtime place detection, and the party / match / mission / teleport frameworks — all booting cleanly in both places. On top of it sit **foundation-only** slices — server-authoritative Combat (Phase 3), Inventory & Equipment (Phase 4), and Enemy AI (Phase 5); see `docs/Changelog.md` 0.3.0–0.5.0. Real content (balanced weapons/enemies, spawning, waves-as-events, loot, crafting, inventory UI, HUD/VFX) and the real DataStore backend are deliberately deferred to later phases. A first **Chapter 1 vertical slice** (`Server/World/ChapterOneSliceService`) now wires these foundations into one end-to-end loop — Intro → Exploration → Objective → Undead Encounter → Combat → Reward → End — with placeholder text and no UI/polish (see `docs/Changelog.md` 0.6.0). Both places build cleanly via Rojo, and the pure domain modules have `TestService` specs.
 
 ## Rojo
 
@@ -113,10 +113,10 @@ All of the above directories exist but are currently empty (git does not track e
 
 ## Design Docs
 
-- `docs/Roadmap.md` — phase plan: Planning → Story/GDD → Core Systems → Combat → Inventory → Multiplayer → Polish → Release.
+- `docs/Roadmap.md` — phase plan: Planning → Story/GDD → Core Systems → Combat → Inventory → Enemy AI → Multiplayer → Polish → Release.
 - `docs/Todo.md` — current backlog (finish Game Design, define Story/Lobby/Gameplay Loop/Inventory/Progression).
 - `docs/Changelog.md` — version history.
-- `docs/Story.md`, `docs/Mechanics.md` — placeholders, not yet written.
+- `docs/Story.md` — the locked story canon (Asterfall, the 40-year return, the Fallen King). `docs/systems/` — per-system design docs (Combat, Enemy AI, Inventory, Economy, Missions, Death System, Progression, Multiplayer); `docs/Mechanics.md` now redirects there.
 - `ideas/GamePlan.md` — brainstorming doc, not yet written.
 
 Check these docs before designing a new system — `Roadmap.md` and `Todo.md` define what phase the project is in and what's actually in scope right now.

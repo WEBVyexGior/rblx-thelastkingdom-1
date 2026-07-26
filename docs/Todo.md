@@ -2,15 +2,15 @@
 
 ## Done
 - [x] Game Design Document authored (`docs/GameDesignDocument.md`)
-- [x] Lobby / Kingdom Hub defined (GDD §2)
-- [x] Gameplay loop defined (GDD §3)
-- [x] Inventory scope defined (GDD §11 — detailed design deferred to the Inventory phase)
-- [x] Progression scope defined (GDD §10)
+- [x] Lobby / Kingdom Hub defined (`docs/Architecture.md` §2)
+- [x] Gameplay loop defined (`docs/systems/Missions.md`)
+- [x] Inventory scope defined (`docs/systems/Inventory.md` — detailed design deferred to the Inventory phase)
+- [x] Progression scope defined (`docs/systems/Progression.md`)
 - [x] Architecture + dual-place structure implemented (`docs/Architecture.md`)
 - [x] Phase 2 core systems implemented (see `docs/Changelog.md` 0.2.0)
 
 ## Phase 2 wrap-up
-- [ ] Expand `docs/Story.md` (currently only the vision in GDD §1)
+- [x] Expand `docs/Story.md` — story canon locked (Asterfall, the 40-year return, the Fallen King, TLK2 seed).
 - [x] Add a test harness for the pure domain modules (Match state machine, Party rules,
       ProfileSchema) — Architecture §10. Uses a dependency-free `TestService.Tests.TestRunner`
       (swappable for TestEZ later); run command documented in `CLAUDE.md`.
@@ -18,12 +18,14 @@
       before real values land (flagged in `configs/README.md`).
 
 ## Before gameplay phases
-- [ ] Lock the GDD §21 open questions (revive economy, resource-on-death, combat model, world
-      structure, wave triggering, extraction, party persistence, hub depth).
+- [ ] Lock the open questions now distributed across the system docs — `docs/systems/Economy.md`
+      (revive economy, resource-on-death, extraction), `docs/systems/Combat.md` (combat model),
+      `docs/systems/Missions.md` (world structure, hub depth), `docs/systems/EnemyAI.md` (wave
+      triggering), `docs/systems/Multiplayer.md` (party persistence).
 
 ## Phase 3 — Combat (in progress)
 - [x] Combat foundation: server-authoritative core (`CombatService`, `Health`, `CombatEntity`,
-      `DamagePipeline`), factions, i-frames, damage types — see Changelog 0.3.0 & `Mechanics.md`.
+      `DamagePipeline`), factions, i-frames, damage types — see Changelog 0.3.0 & `docs/systems/Combat.md`.
 - [x] Combat / Weapon / Enemy config *structure* (schemas only, no values).
 - [x] Combat vertical slice: player swing → server validation → enemy damage → death
       (`PlayerCombatService`, `EnemyService`, `MeleeCombatService`, `HumanoidAdapter`,
@@ -50,3 +52,23 @@
 - [ ] Enemy spawning system + waves (build on the generic `EnemyService`; `ZombieService`).
 - [ ] Animations, ragdoll, and aggro/hit feedback.
 - [ ] Multiplayer AI throttling / optimisation.
+
+## Chapter 1 — Vertical Slice (integration milestone)
+- [x] `ChapterOneSliceService` orchestrator over existing public APIs (no rewrites).
+- [x] Story Intro (start-once per player; survives respawn).
+- [x] Exploration flow (visible markers + server distance detection) → Lore → Objective.
+- [x] Scripted undead encounter via `EnemyService` (always-on test dummy turned off).
+- [x] Completion via `CombatService.EntityDied` → symbolic reward → end → marker cleanup.
+- [x] Pure state machine `ChapterOneSliceFlow` (`Server/Domain`) + spec.
+
+### Slice tech debt / refactors (recorded — not scheduled)
+- [ ] Reward is symbolic (narrative only) — route real reward through Economy/persistence
+      (`DataService`) once they exist (`systems/Economy.md`).
+- [ ] Single shared run / single-player assumptions (`encounterSpawned` / `encounterEnemies`
+      / `encounterRemaining` are module globals) — needs per-run encapsulation for multiplayer.
+- [ ] Slice uses its own per-player states instead of the existing `Match` / `MatchService`
+      lifecycle — candidate to unify.
+- [ ] Objective lives in the orchestrator, not as `Mission` data — move to `configs/Missions`
+      when the Mission schema gains objectives.
+- [ ] No player-death UX (respawn far from the encounter, no re-route) — pending DeathSystem.
+- [ ] No timeout / failure path if the objective is never reached.

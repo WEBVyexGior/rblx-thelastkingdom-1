@@ -2,7 +2,7 @@
 
 This folder holds **balancing data** for The Last Kingdom, kept separate from code so that
 tuning happens in data, not in Luau. See `docs/Architecture.md` §5 for how it fits the
-architecture, and `docs/GameDesignDocument.md` for the systems these numbers drive.
+architecture, and the `docs/systems/` design docs for the systems these numbers drive.
 
 Synced by both place project files to **`ReplicatedStorage.Config`**, and read through the
 `ReplicatedStorage.Shared.Config` accessor.
@@ -20,7 +20,7 @@ Synced by both place project files to **`ReplicatedStorage.Config`**, and read t
 - **Designer-editable data.** Each config is a small ModuleScript returning a `table.freeze`d
   table — easy to read and edit, self-documenting via its header comment.
 - **One file per domain.**
-- **Scaling is data.** Player-count / difficulty scaling (GDD §9) lives in `Difficulty.luau`,
+- **Scaling is data.** Player-count / difficulty scaling (`docs/systems/Multiplayer.md`) lives in `Difficulty.luau`,
   so the future `Scaling` service contains lookup logic only — no magic numbers.
 
 ## Format
@@ -65,6 +65,6 @@ shape.
 
 ## Related
 
-- `docs/GameDesignDocument.md` — systems these numbers drive.
+- `docs/systems/` — the system design docs these numbers drive.
 - `docs/Architecture.md` §5 — how configs sync and are accessed.
 - `scripts/Shared/Config.luau` — the accessor.

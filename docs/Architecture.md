@@ -76,7 +76,7 @@ Key mechanisms:
   out; run result, rewards, survivors on the way back).
 - **DataStore** is the durable backbone — teleport data is transient and untrusted, so
   anything that must survive is validated server-side and persisted (see §6).
-- **Party re-formation** (GDD §13.4): survivors who chose *Wait for teammates* are
+- **Party re-formation** (see `systems/DeathSystem.md`): survivors who chose *Wait for teammates* are
   re-teleported together into a fresh reserved server after the countdown.
 
 > Security note: teleport data is client-adjacent and must be treated as untrusted. The
@@ -192,7 +192,7 @@ the-last-kingdom/
 │   │   │   ├── Camera/
 │   │   │   ├── Input/
 │   │   │   ├── HUD/
-│   │   │   └── DeathUI/             #     medieval death parchment (GDD §13.2)
+│   │   │   └── DeathUI/             #     medieval death parchment (systems/DeathSystem.md)
 │   │   └── Atmosphere/              #   lighting/weather/audio ambiance drivers
 │   │
 │   └── Tests/                       # TestService.Tests — module test harnesses
@@ -236,7 +236,7 @@ Notes:
   directly, so schema changes are localized.
 - Full schema of each config file: **`configs/README.md`**.
 
-Scaling system (GDD §9) is fully config-driven: enemy count/HP/elite-weight/reward
+Scaling system (see `systems/Multiplayer.md`) is fully config-driven: enemy count/HP/elite-weight/reward
 multipliers are looked up per player count and difficulty from `configs/Difficulty` and
 `configs/Enemies`, so `Server/World/Scaling` contains logic, not magic numbers.
 
@@ -287,7 +287,7 @@ difficulty D" and knows nothing about how Waves or EnemyAI use it.
 
 ---
 
-## 9. Death & Party Re-formation Architecture (GDD §13)
+## 9. Death & Party Re-formation Architecture (design: `systems/DeathSystem.md`)
 
 - **DeathSystem** (server, World) owns death state per player: option chosen (Lobby / Revive /
   Wait), spectate window (60 s), then camera-lock/cinematic signal to the client.
@@ -297,7 +297,7 @@ difficulty D" and knows nothing about how Waves or EnemyAI use it.
 - **Re-formation**: server groups "Wait for teammates" survivors, runs a countdown, and
   issues a fresh `ReserveServer` + party teleport for just that subgroup.
 - **Revive (Robux)** goes through a `MarketplaceService` purchase → server validates →
-  applies revive with the anti-P2W guardrails from GDD §15 (never client-authoritative).
+  applies revive with the anti-P2W guardrails from `systems/Economy.md` §3 (never client-authoritative).
 
 ---
 
