@@ -29,6 +29,7 @@ local FOLDER_NAME = "Remotes"
 local EVENT_NAMES: { string } = {
 	"RequestMeleeAttack", -- client -> server: melee swing intent (server-validated)
 	"CombatEvent", -- server -> client: combat outcome notifications (hit feedback)
+	"SliceNarrative", -- server -> client: Chapter 1 slice narrative beats (placeholder intro/lore/objective/reward/end)
 }
 local FUNCTION_NAMES: { string } = {}
 

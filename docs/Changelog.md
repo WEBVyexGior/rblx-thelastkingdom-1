@@ -1,5 +1,28 @@
 # Changelog
 
+## Version 0.6.0 — Chapter 1 Vertical Slice (integration)
+
+The first playable end-to-end loop, proving the foundations connect. DEV/TEST scaffolding
+and placeholder text only — no new gameplay systems, no UI/VFX/animations:
+
+- **ChapterOneSliceService** (`Server/World`, Forgotten Lands only): an ORCHESTRATOR over
+  existing public APIs (never their internals). Per-player flow: Spawn -> Story Intro ->
+  Exploration -> Lore -> Objective -> Undead Encounter -> Combat -> Reward -> End.
+- **Pure state machine** extracted to `ChapterOneSliceFlow` (`Server/Domain`) — ordered
+  states + legal single-step transitions, validated on every advance. Spec:
+  `Tests.ChapterOneSliceFlow.spec`.
+- **Exploration**: visible placeholder markers + server-side distance detection.
+- **Encounter**: reaching the objective spawns scripted undead via the existing
+  `EnemyService` (reuses the `training_dummy` block); the always-on test dummy is now off.
+- **Completion**: encounter deaths tracked through `CombatService.EntityDied` -> symbolic
+  reward -> end -> marker cleanup. The intro is start-once and survives respawn.
+- **Networking / config**: one server->client remote `SliceNarrative` (client
+  `NarrativeController` prints beats — no UI); `configs/ChapterOneSlice.luau` (placeholders)
+  + `Settings` flag `EnableChapterOneSlice`.
+
+No existing system was modified beyond additive hooks (a `Net` remote, `Settings` flags).
+Slice hardening (real reward, multiplayer, Match/Mission integration) is tracked in `Todo`.
+
 ## Version 0.5.0 — Phase 5: Enemy AI Foundation
 
 The enemy AI architecture (foundation only — no waves, spawning system, pathfinding, bosses,

@@ -15,12 +15,15 @@
 
 local Settings = {
 	FeatureFlags = {
-		-- DEV/TEST: auto-spawn a training dummy in the World place so the combat
-		-- vertical slice is immediately playable. Turn off before real content.
-		EnableCombatTestDummies = true,
+		-- DEV/TEST: auto-spawn a training dummy in the World place. Turned OFF now
+		-- that the Chapter 1 slice spawns a scripted encounter instead.
+		EnableCombatTestDummies = false,
 		-- DEV/TEST: grant + equip a starter weapon when a player enters the World,
 		-- so melee works via the equipment system without an inventory UI yet.
 		GrantStarterWeapon = true,
+		-- DEV/TEST: run the Chapter 1 vertical slice orchestrator in the World place
+		-- (intro -> explore -> lore -> objective -> encounter -> reward -> end).
+		EnableChapterOneSlice = true,
 	},
 
 	-- TEST placeholders for the combat vertical slice — NOT balanced values.
