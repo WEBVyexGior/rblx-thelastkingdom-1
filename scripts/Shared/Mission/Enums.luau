@@ -17,6 +17,7 @@ Enums.ObjectiveType = table.freeze({
 	Defend = "Defend", -- keep a target alive for N seconds
 	Escort = "Escort", -- bring an NPC to a destination
 	Interact = "Interact", -- interact with a target
+	Clear = "Clear", -- clear an encounter (Wave System), referenced by encounterId
 })
 
 -- Lifecycle of a single objective within a run.

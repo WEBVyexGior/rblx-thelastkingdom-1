@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Server = script.Parent.Parent
 local CombatService = require(script.Parent.CombatService)
 local EnemyService = require(script.Parent.EnemyService)
+local WaveService = require(script.Parent.WaveService)
 local Objective = require(Server.Domain.Objective)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -36,6 +37,7 @@ export type Context = {
 	setProgress: (value: number) -> (),
 	complete: () -> (),
 	fail: () -> (),
+	emit: (payload: any) -> (), -- send a raw MissionEvent (progress/narrative) to clients
 }
 
 local function rootOf(player: Player): BasePart?
@@ -257,6 +259,33 @@ function Trackers.Escort(objective: Objective.Objective, ctx: Context): () -> ()
 		conn:Disconnect()
 		EnemyService.despawn(id)
 	end
+end
+
+-- Clear: hand off to the Wave System to run an encounter; complete when it clears,
+-- fail if it fails. This is the Mission->Wave seam: the mission decides WHEN, the
+-- WaveService decides HOW.
+function Trackers.Clear(objective: Objective.Objective, ctx: Context): () -> ()
+	local encounterId = objective.def.encounterId
+	if not encounterId then
+		log:warn("Clear objective without encounterId: " .. tostring(objective.id))
+		ctx.complete()
+		return function() end
+	end
+	return WaveService.startEncounter(encounterId, {
+		eliteEnemyId = objective.def.eliteEnemyId,
+		onWaveStart = function(waveIndex: number, totalWaves: number)
+			ctx.emit({ kind = "narrative", text = ("[PLACEHOLDER] Wave %d of %d"):format(waveIndex, totalWaves) })
+		end,
+		onProgress = function(killed: number, total: number)
+			ctx.emit({ kind = "objectiveProgress", current = killed, target = total })
+		end,
+		onComplete = function()
+			ctx.complete()
+		end,
+		onFail = function()
+			ctx.fail()
+		end,
+	})
 end
 
 local ObjectiveTrackers = {}

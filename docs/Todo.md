@@ -88,4 +88,20 @@
 - [ ] Single active run / co-op share one run — multiple concurrent runs + wipe/leave handling.
 - [ ] Defend/Escort foundational (minimal NPC; no attacker targeting/pathfinding).
 - [ ] Objective HUD is client prints — real diegetic UI is Tier 3 polish.
-- [ ] Objective spawns call `EnemyService` directly — the Wave System will structure this.
+- [x] ~~Objective spawns call `EnemyService` directly~~ — RESOLVED (0.8.0): Clear objectives
+      run encounters via the Wave System.
+
+## Encounter / Wave System (integration milestone)
+- [x] Data-driven encounters (`configs/Encounters.luau`, `Shared/Wave` Enums/Types): spawn
+      points, waves, spawn groups, sequential/parallel modes.
+- [x] Pure `EncounterRun` conductor (wave progression/clearing/completion) + spec.
+- [x] `WaveService.startEncounter` engine: spawn / track / advance / scale / cleanup + callbacks.
+- [x] Difficulty scaling (`configs/Difficulty`, `Shared/Scaling`): count/health/elite/reward
+      per player count (sub-linear). Elite/boss enemies (`undead_brute`, `fallen_champion`).
+- [x] `Clear` objective ties Mission (WHEN) to Wave (HOW); Chapter 1 uses a 2-wave encounter.
+
+### Wave System tech debt (recorded — not scheduled)
+- [ ] Boss abilities/phases, spawn telegraphs/VFX (polish).
+- [ ] Enemy pooling / perf for large invasions.
+- [ ] Timed/triggered invasions beyond `startDelay` waves.
+- [ ] `RewardMult` from scaling is computed but not applied yet (pending Economy).

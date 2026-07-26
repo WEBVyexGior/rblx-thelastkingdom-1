@@ -29,7 +29,10 @@ Integration Milestone
   → End). Placeholder content, no UI/polish — see Changelog 0.6.0.
 - Mission & Objective System ✅ — data-driven missions / objectives (Reach, Kill, Survive,
   Defend, Escort, Interact) / chapters + a World runtime engine; Chapter 1 is now data,
-  replacing the hardcoded slice. See Changelog 0.7.0. Hardening tracked in Todo.
+  replacing the hardcoded slice. See Changelog 0.7.0.
+- Encounter / Wave System ✅ — data-driven encounters (spawn points, waves, groups,
+  sequential/parallel), difficulty scaling, elite/boss support; run by a World engine and
+  triggered by mission `Clear` objectives. See Changelog 0.8.0. Hardening tracked in Todo.
 
 Phase 6
 - Multiplayer ⬜

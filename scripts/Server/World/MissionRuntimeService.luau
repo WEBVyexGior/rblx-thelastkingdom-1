@@ -197,6 +197,11 @@ local function activateNext()
 			run:fail()
 			finishRun(false)
 		end,
+		emit = function(payload: any)
+			payload.missionId = run.missionId
+			payload.objectiveId = objective.id
+			fire(payload)
+		end,
 	}
 
 	activeStop = ObjectiveTrackers.start(objective, ctx)

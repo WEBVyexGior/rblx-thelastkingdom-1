@@ -28,6 +28,12 @@ local function validateObjective(o: any, i: number)
 	if o.target ~= nil then
 		assert(type(o.target) == "number" and o.target > 0, ("objective '%s' target must be > 0"):format(o.id))
 	end
+	if o.type == Enums.ObjectiveType.Clear then
+		assert(
+			type(o.encounterId) == "string" and o.encounterId ~= "",
+			("objective '%s' (Clear) requires an encounterId"):format(o.id)
+		)
+	end
 end
 
 -- Validates a raw mission definition and returns it.

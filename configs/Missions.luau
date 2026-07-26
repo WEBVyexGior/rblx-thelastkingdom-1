@@ -43,12 +43,10 @@ local Missions = {
 			},
 			{
 				id = "clear_undead",
-				type = "Kill",
-				description = "[PLACEHOLDER] Clear the undead.",
-				target = 3,
-				spawns = {
-					{ enemyId = "training_dummy", count = 3, center = Vector3.new(0, 3, -70), spread = 6 },
-				},
+				type = "Clear",
+				description = "[PLACEHOLDER] Clear the undead ambush.",
+				encounterId = "chapter_one_ambush",
+				eliteEnemyId = "undead_brute",
 			},
 		},
 	},

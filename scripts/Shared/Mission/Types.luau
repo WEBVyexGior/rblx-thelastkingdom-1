@@ -28,7 +28,9 @@ export type ObjectiveDef = {
 	target: number?, -- Kill = count; Survive/Defend = seconds; default 1
 	position: Vector3?, -- Reach / Escort destination / Interact / Defend spot
 	radius: number?, -- Reach / Interact / arrival radius
-	spawns: { EnemySpawn }?, -- units to spawn when this objective activates
+	spawns: { EnemySpawn }?, -- units to spawn when this objective activates (Kill/Defend/Escort)
+	encounterId: string?, -- Clear objective: the encounter (configs/Encounters) to run
+	eliteEnemyId: string?, -- Clear objective: elite substitute for scaled-in extra units
 	timeLimit: number?, -- optional fail timer (seconds)
 }
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## Version 0.8.0 — Encounter / Wave System
+
+A reusable, data-driven encounter framework: the Mission System decides WHEN an encounter
+starts, the Wave System decides HOW it runs. Placeholder content, no UI/VFX:
+
+- **Data**: `configs/Encounters.luau` (spawn points + waves + groups) and `Shared/Wave`
+  (Enums, Types); `configs/Difficulty` (player-count scaling) and `configs/Waves` (global
+  defaults) filled; `configs/Enemies` +elite (`undead_brute`) +boss (`fallen_champion`).
+- **Domain (pure, tested)**: `EncounterRun` — sequential/parallel wave progression, wave
+  clearing, completion/fail (+ `EncounterRun.spec`).
+- **World runtime**: `WaveService.startEncounter(id, ctx)` spawns via `EnemyService`, tracks
+  deaths via `CombatService.EntityDied`, advances waves (rest between), applies difficulty
+  scaling (count + health + elite substitution), and cleans up. `Shared/Scaling` reads
+  `configs/Difficulty`.
+- **Integration**: new `Clear` objective (`encounterId`) -> `ObjectiveTrackers.Clear` ->
+  WaveService; wave/kill progress streams to the `MissionEvent` feed. `EnemyService.spawn`
+  gained a health-scaling argument.
+- **Chapter 1** moved from a flat 3-dummy spawn to a real 2-wave encounter
+  (`chapter_one_ambush`, with an elite in wave 2).
+
+Clean seam for level design: drop encounters into `configs/Encounters.luau` and reference them
+from missions — no new code. Resolves the "objective spawns call EnemyService directly" debt.
+
 ## Version 0.7.0 — Mission & Objective System
 
 Data-driven missions, objectives, and chapters replace the hardcoded Chapter 1 slice — the

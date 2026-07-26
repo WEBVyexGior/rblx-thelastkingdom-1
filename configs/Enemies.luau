@@ -68,6 +68,52 @@ local Enemies = {
 		Tier = "Standard",
 		Abilities = {},
 	},
+
+	-- Elite placeholder (tougher standard undead) for wave composition. Provisional.
+	undead_brute = {
+		DisplayName = "Undead Brute (placeholder)",
+		Faction = "Enemies",
+		Archetype = "Undead",
+		MaxHealth = 200,
+		Stats = {},
+		DamageType = "Physical",
+		Resistances = {},
+		Tier = "Elite",
+		Abilities = {},
+		AI = {
+			DetectionRadius = 35,
+			AttackRange = 7,
+			LeashRadius = 60,
+			ArrivalRadius = 3,
+			MoveSpeed = 8,
+			AttackCooldown = 2.0,
+			AttackDamage = 20,
+			AttackDamageType = "Physical",
+		},
+	},
+
+	-- Boss placeholder for set-piece encounters. Provisional.
+	fallen_champion = {
+		DisplayName = "Fallen Champion (placeholder boss)",
+		Faction = "Enemies",
+		Archetype = "Boss",
+		MaxHealth = 800,
+		Stats = {},
+		DamageType = "Physical",
+		Resistances = {},
+		Tier = "Boss",
+		Abilities = {},
+		AI = {
+			DetectionRadius = 50,
+			AttackRange = 8,
+			LeashRadius = 100,
+			ArrivalRadius = 3,
+			MoveSpeed = 9,
+			AttackCooldown = 2.5,
+			AttackDamage = 35,
+			AttackDamageType = "Physical",
+		},
+	},
 }
 
 return table.freeze(Enemies)

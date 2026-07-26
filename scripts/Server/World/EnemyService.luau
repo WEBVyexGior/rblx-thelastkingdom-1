@@ -75,8 +75,9 @@ end
 
 -- Spawns unit `enemyId` at `position`, registers it as a CombatEntity, and returns
 -- its entity id. Attaches the AI brain only if the def has an `AI` block (so neutral
--- NPCs are passive). Despawns automatically on death.
-function EnemyService.spawn(enemyId: string, position: Vector3): string
+-- NPCs are passive). Despawns automatically on death. `healthMult` scales max health
+-- (difficulty scaling); defaults to 1.
+function EnemyService.spawn(enemyId: string, position: Vector3, healthMult: number?): string
 	local enemies = Config.get("Enemies")
 	local def = enemies[enemyId]
 	assert(def, "Unknown enemy id: " .. tostring(enemyId))
@@ -104,7 +105,7 @@ function EnemyService.spawn(enemyId: string, position: Vector3): string
 	local entity = CombatService.registerEntity({
 		id = id,
 		faction = def.Faction,
-		maxHealth = def.MaxHealth,
+		maxHealth = def.MaxHealth * (healthMult or 1),
 		model = model,
 	})
 	bindings[id] = HumanoidAdapter.bind(entity.health, humanoid)
