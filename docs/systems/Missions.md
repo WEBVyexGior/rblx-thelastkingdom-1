@@ -1,7 +1,7 @@
 # The Last Kingdom — Missions, Loop & Exploration (Design)
 
-**Status:** Design only — `MissionService` exists as an **empty registry** (Phase 2 framework);
-no mission content yet.
+**Status:** Implemented — data-driven missions / objectives / chapters + a World runtime
+engine; Chapter 1 is now data (see Changelog 0.7.0). Diegetic HUD is later polish.
 **Serves:** `../GameDesignDocument.md` §4 (Campaign Structure), §3 (Story Overview), §1.2
 (Pillar 3 — Exploration), §5 (Tier 1 — mission system & objectives).
 **Source of truth:** the GDD vision; this is the design-of-record for missions & the loop.
@@ -84,12 +84,27 @@ Exploration is a first-class pillar (GDD Pillar 3), not filler between fights.
   handcrafted vs. hybrid. (old GDD §21.4)
 - **Hub content depth** — how much explorable/secret content lives in the Hub itself. (old GDD §21.8)
 
-## 6. Implementation status
+## 6. Implementation (Mission & Objective System)
 
-- `MissionService` / `Mission` (`Server/Services`, `Server/Domain`) — lifecycle framework with
-  an **empty mission registry by design** (Phase 2). No mission definitions yet.
-- `MatchService` / `PartyService` / `TeleportService` — run/party/teleport frameworks exist
-  (see `Multiplayer.md`).
+Data-driven end-to-end (Changelog 0.7.0):
+
+- **Content is data**: `configs/Missions.luau` (a mission = ordered objectives + narrative +
+  symbolic reward) and `configs/Chapters.luau` (ordered mission ids). Shared contract in
+  `Shared/Mission` (Enums, Types); validated by `Server/Domain/Mission`.
+- **Domain (pure, tested)**: `Objective` (progress/status) and `MissionRun` (sequential
+  activation, completion, failure). Specs: `Objective.spec`, `MissionRun.spec`.
+- **World runtime**: `MissionRuntimeService` turns a mission into a live run, drives a `Match`
+  through its lifecycle, and streams a `MissionEvent` feed (no UI — client `MissionController`
+  prints). `ObjectiveTrackers` implements each type — **Reach / Kill / Survive / Interact**
+  fully, **Defend / Escort** foundationally (minimal neutral NPC). `ChapterService` auto-plays
+  a chapter's missions in the Forgotten Lands (flag `EnableCampaign`).
+- **Objective types**: Reach, Kill, Survive, Defend, Escort, Interact (`Shared/Mission/Enums`).
+- **Chapter 1** is the former hardcoded slice, now `configs/Missions.chapter_one_return`
+  (Reach → Reach → Kill 3). Spawning goes through `EnemyService.spawn`, behind the seam the
+  Wave System will extend.
+
+Remaining (later milestones — see `../Todo.md`): real reward granting (Economy/persistence),
+multiplayer/concurrent runs + wipe handling, and the diegetic objective HUD.
 
 ## 7. Related
 

@@ -54,6 +54,20 @@ local Enemies = {
 			AttackDamageType = "Physical",
 		},
 	},
+
+	-- Neutral NPC placeholder for Defend / Escort objective targets. No AI block, so
+	-- it stays passive; Escort movement is driven by the objective tracker. Provisional.
+	villager_npc = {
+		DisplayName = "Villager (placeholder)",
+		Faction = "Neutral",
+		Archetype = "Npc",
+		MaxHealth = 60,
+		Stats = {},
+		DamageType = "Physical",
+		Resistances = {},
+		Tier = "Standard",
+		Abilities = {},
+	},
 }
 
 return table.freeze(Enemies)

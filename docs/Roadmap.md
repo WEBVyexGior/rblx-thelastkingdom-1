@@ -26,7 +26,10 @@ Phase 5
 Integration Milestone
 - Chapter 1 Vertical Slice ✅ — first end-to-end gameplay loop wiring the Phase 2-5
   foundations (Intro → Exploration → Lore → Objective → Undead Encounter → Combat → Reward
-  → End). Placeholder content, no UI/polish — see Changelog 0.6.0. Hardening tracked in Todo.
+  → End). Placeholder content, no UI/polish — see Changelog 0.6.0.
+- Mission & Objective System ✅ — data-driven missions / objectives (Reach, Kill, Survive,
+  Defend, Escort, Interact) / chapters + a World runtime engine; Chapter 1 is now data,
+  replacing the hardcoded slice. See Changelog 0.7.0. Hardening tracked in Todo.
 
 Phase 6
 - Multiplayer ⬜

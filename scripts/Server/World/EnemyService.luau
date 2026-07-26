@@ -1,16 +1,15 @@
 --!strict
 --[[
 	EnemyService
-	Generic enemy layer for the Forgotten Lands: spawns an enemy model, registers
-	it as a CombatEntity (faction Enemies), binds its Health to its Humanoid, and
+	Generic spawn layer for the Forgotten Lands: spawns a unit (enemy OR neutral NPC)
+	from `configs/Enemies`, registers it as a CombatEntity (faction from its def),
+	binds Health<->Humanoid, attaches the AI brain if the def has an `AI` block, and
 	cleans it up on death. Generic on purpose — undead, animals, bosses, and NPC
-	enemies all flow through here; archetype-specific content (e.g. undead waves)
-	is a later layer on top, NOT baked in.
+	targets (Defend/Escort) all flow through here; archetype-specific content is data.
 
-	For the vertical slice it spawns a minimal TEST "training dummy" so melee has a
-	target. Real, config-driven enemy content comes later.
+	The Wave System will later drive spawning through this same API (batches, pacing).
 
-	Place: Forgotten Lands ONLY (Server/World). Phase: Combat (vertical slice).
+	Place: Forgotten Lands ONLY (Server/World). Phase: Combat / Missions.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -30,53 +29,61 @@ local EnemyService = {}
 EnemyService.Name = "EnemyService"
 
 local log = Logger.new("EnemyService")
+
+-- Height (studs) of the placeholder rig; used to rest its feet on the ground.
+local RIG_HEIGHT = 5
+
 local nextId = 0
 local bindings: { [string]: HumanoidAdapter.Binding } = {}
-
--- Height (studs) of the placeholder dummy part; used to rest its feet on the ground.
-local DUMMY_HEIGHT = 5
--- The Enemies-config key this spawner uses (drives stats + the AI block).
-local ENEMY_ID = "training_dummy"
 
 local function generateId(): string
 	nextId += 1
 	return Constants.CombatId.EnemyPrefix .. nextId
 end
 
--- Minimal anchored Humanoid rig used as a stand-in target. TEST scaffolding only
--- — real enemy models (models/World) and config-driven spawning come later.
-local function buildDummyRig(): (Model, Humanoid)
+-- Simple visible marker colour by faction (placeholder rig, not VFX).
+local function colorForFaction(faction: string): Color3
+	if faction == Enums.Faction.Neutral then
+		return Color3.fromRGB(60, 160, 90)
+	elseif faction == Enums.Faction.Players then
+		return Color3.fromRGB(60, 120, 220)
+	end
+	return Color3.fromRGB(150, 40, 40) -- Enemies / default
+end
+
+-- Minimal anchored Humanoid rig used as a stand-in body. TEST scaffolding only —
+-- real models (models/World) come later.
+local function buildRig(color: Color3): (Model, Humanoid)
 	local model = Instance.new("Model")
-	model.Name = "TrainingDummy"
+	model.Name = "SpawnedUnit"
 
 	local root = Instance.new("Part")
 	root.Name = "HumanoidRootPart"
-	root.Size = Vector3.new(2, DUMMY_HEIGHT, 1)
+	root.Size = Vector3.new(2, RIG_HEIGHT, 1)
 	root.Anchored = true
-	root.Color = Color3.fromRGB(150, 40, 40) -- visible test-target marker (not VFX)
+	root.Color = color
 	root.Parent = model
 	model.PrimaryPart = root
 
 	local humanoid = Instance.new("Humanoid")
-	-- The minimal rig has no Head/neck; without this a headless Humanoid can
-	-- auto-die on spawn. Keep it alive until it actually takes damage.
+	-- Headless rig would auto-die without this.
 	humanoid.RequiresNeck = false
 	humanoid.Parent = model
 
 	return model, humanoid
 end
 
--- Spawns a training dummy at `position` and registers it as a CombatEntity.
--- Returns its entity id.
-function EnemyService.spawnDummy(position: Vector3): string
+-- Spawns unit `enemyId` at `position`, registers it as a CombatEntity, and returns
+-- its entity id. Attaches the AI brain only if the def has an `AI` block (so neutral
+-- NPCs are passive). Despawns automatically on death.
+function EnemyService.spawn(enemyId: string, position: Vector3): string
 	local enemies = Config.get("Enemies")
-	local def = enemies[ENEMY_ID] -- TEST placeholder definition
+	local def = enemies[enemyId]
+	assert(def, "Unknown enemy id: " .. tostring(enemyId))
 
-	local model, humanoid = buildDummyRig()
+	local model, humanoid = buildRig(colorForFaction(def.Faction))
 
-	-- Rest the dummy's feet on the ground: raycast down at the spawn XZ and place
-	-- it on whatever it hits (baseplate/terrain), else fall back to the given Y.
-	-- Keeps it from sinking into (or floating above) any baseplate height.
+	-- Rest feet on the ground under the spawn XZ (baseplate/terrain), else fall back.
 	local rayParams = RaycastParams.new()
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	rayParams.FilterDescendantsInstances = { model }
@@ -89,23 +96,22 @@ function EnemyService.spawnDummy(position: Vector3): string
 	if hit then
 		groundY = hit.Position.Y
 	end
-	local spawnPos = Vector3.new(position.X, groundY + DUMMY_HEIGHT / 2, position.Z)
+	local spawnPos = Vector3.new(position.X, groundY + RIG_HEIGHT / 2, position.Z)
 	model:PivotTo(CFrame.new(spawnPos))
 	model.Parent = Workspace
 
 	local id = generateId()
 	local entity = CombatService.registerEntity({
 		id = id,
-		faction = Enums.Faction.Enemies,
+		faction = def.Faction,
 		maxHealth = def.MaxHealth,
 		model = model,
 	})
 	bindings[id] = HumanoidAdapter.bind(entity.health, humanoid)
 
-	-- Give it an AI brain (no-op if the enemy's config has no AI block).
-	EnemyAIService.attach(entity, ENEMY_ID, spawnPos)
+	-- AI brain (no-op if the def has no AI block — neutral NPCs stay passive).
+	EnemyAIService.attach(entity, enemyId, spawnPos)
 
-	-- Despawn on death (no ragdoll / VFX in this slice).
 	entity.health.Died:connect(function()
 		EnemyService.despawn(id)
 	end)
@@ -124,22 +130,11 @@ function EnemyService.despawn(id: string)
 		entity.model:Destroy()
 	end
 	CombatService.unregisterEntity(id)
-	log:info(id .. " died and despawned")
 end
 
 function EnemyService.Init() end
 
 function EnemyService.Start()
-	local settings = Config.get("Settings")
-	if settings.FeatureFlags.EnableCombatTestDummies then
-		local dummy = settings.Combat.TestDummy
-		local count: number = dummy.Count
-		local offset: number = dummy.SpawnOffset
-		for i = 1, count do
-			EnemyService.spawnDummy(Vector3.new((i - 1) * 6, 3, -offset))
-		end
-		log:info(("spawned %d test dummy(ies)"):format(count))
-	end
 	log:info("ready")
 end
 

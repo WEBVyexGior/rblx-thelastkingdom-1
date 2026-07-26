@@ -1,5 +1,27 @@
 # Changelog
 
+## Version 0.7.0 — Mission & Objective System
+
+Data-driven missions, objectives, and chapters replace the hardcoded Chapter 1 slice — the
+former slice is now content, not code. Placeholder text only, no UI/VFX/polish:
+
+- **Data**: `configs/Missions.luau` (ordered objectives + narrative + symbolic reward) and
+  `configs/Chapters.luau` (ordered mission ids); shared contract in `Shared/Mission` (Enums:
+  Reach/Kill/Survive/Defend/Escort/Interact; Types).
+- **Domain (pure, tested)**: `Objective` and `MissionRun` (sequential activation, completion,
+  failure) + specs `Objective.spec`, `MissionRun.spec`.
+- **World runtime**: `MissionRuntimeService` (mission -> live run, drives a `Match`, streams a
+  `MissionEvent` feed), `ObjectiveTrackers` (Reach/Kill/Survive/Interact full; Defend/Escort
+  foundational with a neutral NPC), `ChapterService` (auto-plays a chapter; flag `EnableCampaign`).
+- **Integration / refactor**: `MissionService` loads + validates the configs (and chapters);
+  `EnemyService.spawn(enemyId, position)` generalised from the hardcoded dummy; `Net`
+  `SliceNarrative` -> `MissionEvent`; client `NarrativeController` -> `MissionController`.
+- **Removed** the hardcoded slice: `ChapterOneSliceService`, `ChapterOneSliceFlow` (+ spec),
+  `configs/ChapterOneSlice.luau`, `NarrativeController`. Chapter 1 plays identically, from data.
+
+Resolves slice tech debt: objectives are data (not baked into an orchestrator) and the run
+uses the `Match` lifecycle. Reward stays symbolic until the Progression milestone.
+
 ## Version 0.6.0 — Chapter 1 Vertical Slice (integration)
 
 The first playable end-to-end loop, proving the foundations connect. DEV/TEST scaffolding

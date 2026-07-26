@@ -66,9 +66,26 @@
       (`DataService`) once they exist (`systems/Economy.md`).
 - [ ] Single shared run / single-player assumptions (`encounterSpawned` / `encounterEnemies`
       / `encounterRemaining` are module globals) — needs per-run encapsulation for multiplayer.
-- [ ] Slice uses its own per-player states instead of the existing `Match` / `MatchService`
-      lifecycle — candidate to unify.
-- [ ] Objective lives in the orchestrator, not as `Mission` data — move to `configs/Missions`
-      when the Mission schema gains objectives.
+- [x] ~~Slice uses its own per-player states instead of `Match`~~ — RESOLVED (0.7.0): the
+      Mission System drives a `Match` lifecycle.
+- [x] ~~Objective lives in the orchestrator, not as `Mission` data~~ — RESOLVED (0.7.0):
+      objectives are data in `configs/Missions.luau`.
 - [ ] No player-death UX (respawn far from the encounter, no re-route) — pending DeathSystem.
 - [ ] No timeout / failure path if the objective is never reached.
+
+## Mission & Objective System (integration milestone)
+- [x] Data-driven missions/objectives/chapters (`configs/Missions.luau`, `configs/Chapters.luau`,
+      `Shared/Mission` Enums/Types), validated by `Server/Domain/Mission`.
+- [x] Pure domain `Objective` + `MissionRun` (sequential activation/completion/fail) + specs.
+- [x] World runtime `MissionRuntimeService` (drives a `Match`, streams `MissionEvent`) +
+      `ObjectiveTrackers` (Reach/Kill/Survive/Interact full; Defend/Escort foundational) +
+      `ChapterService` (auto-plays a chapter).
+- [x] `EnemyService.spawn(enemyId, position)` generalised; client `MissionController` feed.
+- [x] Chapter 1 replaced by data (`chapter_one_return`); hardcoded slice removed.
+
+### Mission System tech debt (recorded — not scheduled)
+- [ ] Reward is symbolic — grant through Economy/persistence (`systems/Economy.md`) later.
+- [ ] Single active run / co-op share one run — multiple concurrent runs + wipe/leave handling.
+- [ ] Defend/Escort foundational (minimal NPC; no attacker targeting/pathfinding).
+- [ ] Objective HUD is client prints — real diegetic UI is Tier 3 polish.
+- [ ] Objective spawns call `EnemyService` directly — the Wave System will structure this.
