@@ -23,7 +23,9 @@ local Server = script.Parent.Parent
 local DataService = require(script.Parent.DataService)
 local ProfileSchema = require(Server.Domain.ProfileSchema)
 local InMemoryStore = require(Server.Domain.InMemoryStore)
+local DataStoreStore = require(Server.Domain.DataStoreStore)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local Config = require(ReplicatedStorage.Shared.Config)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
 local SaveService = {}
@@ -35,6 +37,9 @@ local log = Logger.new("SaveService")
 -- Default backend is the in-memory mock. Typed `any` so a real DataStore-backed
 -- Store can be injected without structural-typing friction.
 local store: any = InMemoryStore.new()
+
+-- Name of the DataStore that holds player profiles.
+local PROFILE_STORE = "PlayerProfiles"
 
 local function keyFor(player: Player): string
 	return "Player_" .. player.UserId
@@ -71,7 +76,18 @@ function SaveService.saveAll()
 	end
 end
 
-function SaveService.Init() end
+function SaveService.Init()
+	-- Choose the persistence backend once, before any load: the real DataStore when
+	-- enabled AND available, else keep the in-memory mock (e.g. Studio without API
+	-- access) so gameplay always works.
+	local settings = Config.get("Settings")
+	if settings.FeatureFlags.UseDataStore and DataStoreStore.isAvailable() then
+		store = DataStoreStore.new(PROFILE_STORE)
+		log:info("persistence: DataStore backend")
+	else
+		log:info("persistence: in-memory backend (DataStore disabled or unavailable)")
+	end
+end
 
 function SaveService.Start()
 	-- Periodic autosave. Safe with the mock backend; real backend injected later.

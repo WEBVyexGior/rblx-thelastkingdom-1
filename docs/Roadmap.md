@@ -9,7 +9,7 @@ Phase 1
 
 Phase 2
 - Core Systems 🚧 (backend framework, services, and the `TestService` test runner + domain
-  specs implemented — see Changelog 0.2.0; the real DataStore backend is still a mock)
+  specs implemented — see Changelog 0.2.0; real DataStore backend added in 0.9.0)
 
 Phase 3
 - Combat 🚧 (foundation + vertical slice implemented — see Changelog 0.3.0 / 0.3.1;
@@ -32,7 +32,10 @@ Integration Milestone
   replacing the hardcoded slice. See Changelog 0.7.0.
 - Encounter / Wave System ✅ — data-driven encounters (spawn points, waves, groups,
   sequential/parallel), difficulty scaling, elite/boss support; run by a World engine and
-  triggered by mission `Clear` objectives. See Changelog 0.8.0. Hardening tracked in Todo.
+  triggered by mission `Clear` objectives. See Changelog 0.8.0.
+- Progression & Rewards + Persistence ✅ — XP/levels, currency, a server-authoritative reward
+  pipeline applied from missions & encounters, over real DataStore-backed saves (with an
+  in-memory fallback). See Changelog 0.9.0. Hardening tracked in Todo.
 
 Phase 6
 - Multiplayer ⬜

@@ -1,5 +1,28 @@
 # Changelog
 
+## Version 0.9.0 — Progression & Rewards + Persistence
+
+Progression = WHAT THE PLAYER EARNS. A real reward pipeline over durable saves; missions and
+encounters now grant currency and XP. Placeholder values, no UI:
+
+- **Domain (pure, tested)**: `Progression` (XP -> levels from the Experience curve, +
+  `Progression.spec`); `ProfileSchema` v2 adds `xp`/`level` with a v1->v2 migration
+  (`ProfileSchema.spec` extended); `DataStoreStore` — a real DataStoreService-backed `Store`
+  (pcall + retry).
+- **Service**: `RewardService` grants currency + XP (via Progression) into the persistent
+  profile — server-authoritative, with level-ups.
+- **Persistence**: `SaveService` injects `DataStoreStore` when enabled + available
+  (`FeatureFlags.UseDataStore`), else keeps the in-memory mock (Studio without API access) —
+  same `Store` interface, no other change. Load/save/autosave/close lifecycle already existed.
+- **Content**: `configs/Experience` (XP curve, MaxLevel 10), `configs/Economy` (`gold`);
+  Chapter 1's mission and its `Clear` objective carry real `reward` values.
+- **Integration**: `MissionRuntimeService` applies a mission's `reward` on completion AND any
+  objective's `reward` on objective complete (so encounters reward too); results stream to the
+  `MissionEvent` feed and print via `MissionController`.
+
+Resolves slice tech debt: rewards are real (currency + XP into the profile) and persistence is
+a real DataStore backend, not a mock. Cross-place session locking remains tracked tech debt.
+
 ## Version 0.8.0 — Encounter / Wave System
 
 A reusable, data-driven encounter framework: the Mission System decides WHEN an encounter

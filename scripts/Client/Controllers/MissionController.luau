@@ -33,6 +33,14 @@ function MissionController.Start()
 				tostring(payload.current),
 				tostring(payload.target)
 			))
+		elseif kind == "reward" then
+			print(("[MISSION:reward] %s  (+%s gold, +%s xp -> level %s%s)"):format(
+				tostring(payload.text),
+				tostring(payload.currency),
+				tostring(payload.xp),
+				tostring(payload.level),
+				if payload.leveledUp then " — LEVEL UP!" else ""
+			))
 		elseif payload.text ~= nil then
 			print(("[MISSION:%s] %s"):format(kind, tostring(payload.text)))
 		else

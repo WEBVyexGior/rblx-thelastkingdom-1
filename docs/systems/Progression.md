@@ -1,7 +1,7 @@
 # The Last Kingdom — Progression, Upgrades & Retention (Design)
 
-**Status:** Design only — `configs/Experience.luau` exists as a schema skeleton with no values;
-no progression service yet.
+**Status:** Implemented (Progression & Rewards + Persistence) — XP/levels, currency rewards,
+and real DataStore-backed saves; rewards applied from missions & encounters. See Changelog 0.9.0.
 **Serves:** `../GameDesignDocument.md` §5 (Tier 1 — map/character progression; Tier 2 — depth),
 §1.2 (Pillar 4 — meaningful combat progression).
 **Source of truth:** the GDD vision; this is the design-of-record for progression.
@@ -35,11 +35,25 @@ no progression service yet.
 - Co-op social hooks — parties, shared discovery, revival (`Multiplayer.md`, `DeathSystem.md`).
 - Extraction risk/reward decisions (`Economy.md`).
 
-## 3. Implementation status
+## 3. Implementation (Progression & Rewards + Persistence)
 
-Nothing implemented beyond the persistence **framework** (`ProfileSchema`, `DataService`,
-`SaveService` over a **mocked** in-memory store — real DataStore deferred; see
-`../Architecture.md` §6). Progression/upgrade services are a later phase.
+Implemented end-to-end (Changelog 0.9.0):
+
+- **Progression (pure, tested)** — `Server/Domain/Progression`: XP → levels from the
+  `configs/Experience` curve (`Progression.spec`). The profile gained `xp`/`level`
+  (`ProfileSchema` v2 + a v1→v2 migration).
+- **Rewards** — `Server/Services/RewardService` grants currency + XP into the persistent
+  profile (server-authoritative, with level-ups). Both a **mission's `reward`** (on completion)
+  and **any objective's `reward`** (on objective complete — so `Clear` objectives reward the
+  encounter) are applied; the result (currency/xp/level-up) streams to the client `MissionEvent`
+  feed.
+- **Persistence** — `Server/Domain/DataStoreStore` (DataStoreService + pcall/retry) implements
+  the `Store` interface and is injected into `SaveService` when enabled + available
+  (`FeatureFlags.UseDataStore`), else the in-memory mock is kept (e.g. Studio without API
+  access). Load-on-join / save-on-leave / autosave / save-on-close already existed.
+
+Not yet: cross-place **session locking** (dupe protection), applying `RewardMult` scaling, Hub
+spend/upgrades, and client HUD replication. See `../Todo.md`.
 
 ## 4. Related
 

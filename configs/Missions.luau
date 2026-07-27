@@ -21,9 +21,9 @@ local Missions = {
 		intro = "[PLACEHOLDER INTRO] Forty years gone. You return, and the land is silent...",
 		outro = "[PLACEHOLDER END] The path is clear. The return has begun.",
 		reward = {
-			summary = "[PLACEHOLDER REWARD] placeholder reward granted",
-			currency = 0,
-			xp = 0,
+			summary = "[PLACEHOLDER] Mission reward",
+			currency = 50,
+			xp = 120,
 		},
 		objectives = {
 			{
@@ -47,6 +47,7 @@ local Missions = {
 				description = "[PLACEHOLDER] Clear the undead ambush.",
 				encounterId = "chapter_one_ambush",
 				eliteEnemyId = "undead_brute",
+				reward = { summary = "[PLACEHOLDER] Ambush cleared", currency = 25, xp = 60 },
 			},
 		},
 	},

@@ -22,6 +22,7 @@ local MissionService = require(Server.Services.MissionService)
 local MissionRun = require(Server.Domain.MissionRun)
 local Match = require(Server.Domain.Match)
 local ObjectiveTrackers = require(script.Parent.ObjectiveTrackers)
+local RewardService = require(Server.Services.RewardService)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -83,6 +84,25 @@ local function stopTracker()
 	end
 end
 
+-- Grants `reward` to every run player (server-authoritative, via RewardService) and
+-- tells each player their result (currency / xp / level-up) over the mission feed.
+local function applyReward(reward: any)
+	local granted = RewardService.apply(runPlayers, reward)
+	if not missionEvent then
+		return
+	end
+	for player, applied in granted do
+		missionEvent:FireClient(player, {
+			kind = "reward",
+			text = reward.summary,
+			currency = applied.currency,
+			xp = applied.xp,
+			level = applied.newLevel,
+			leveledUp = applied.levelsGained > 0,
+		})
+	end
+end
+
 local function finishRun(completed: boolean)
 	stopTracker()
 	clearMarker()
@@ -95,10 +115,9 @@ local function finishRun(completed: boolean)
 	local def = run and run.def
 	if def then
 		if completed then
+			fire({ kind = "missionComplete", missionId = def.id })
 			if def.reward then
-				fire({ kind = "missionComplete", missionId = def.id, text = def.reward.summary })
-			else
-				fire({ kind = "missionComplete", missionId = def.id })
+				applyReward(def.reward)
 			end
 			if def.outro then
 				fire({ kind = "narrative", missionId = def.id, text = def.outro })
@@ -157,6 +176,9 @@ local function activateNext()
 				objectiveId = objective.id,
 				text = objective.def.completionText,
 			})
+		end
+		if objective.def.reward then
+			applyReward(objective.def.reward)
 		end
 		activateNext()
 	end

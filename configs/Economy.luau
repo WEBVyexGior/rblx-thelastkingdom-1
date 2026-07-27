@@ -22,7 +22,9 @@
 ]]
 
 local Economy = {
-	Currencies = {},
+	Currencies = {
+		gold = { DisplayName = "Gold" }, -- the primary run currency
+	},
 	Upgrades = {},
 	Revive = {},
 }

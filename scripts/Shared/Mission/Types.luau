@@ -31,6 +31,7 @@ export type ObjectiveDef = {
 	spawns: { EnemySpawn }?, -- units to spawn when this objective activates (Kill/Defend/Escort)
 	encounterId: string?, -- Clear objective: the encounter (configs/Encounters) to run
 	eliteEnemyId: string?, -- Clear objective: elite substitute for scaled-in extra units
+	reward: RewardDef?, -- optional reward granted when THIS objective completes
 	timeLimit: number?, -- optional fail timer (seconds)
 }
 

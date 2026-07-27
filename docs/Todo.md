@@ -62,8 +62,8 @@
 - [x] Pure state machine `ChapterOneSliceFlow` (`Server/Domain`) + spec.
 
 ### Slice tech debt / refactors (recorded — not scheduled)
-- [ ] Reward is symbolic (narrative only) — route real reward through Economy/persistence
-      (`DataService`) once they exist (`systems/Economy.md`).
+- [x] ~~Reward is symbolic (narrative only)~~ — RESOLVED (0.9.0): `RewardService` grants
+      currency + XP into the persistent profile.
 - [ ] Single shared run / single-player assumptions (`encounterSpawned` / `encounterEnemies`
       / `encounterRemaining` are module globals) — needs per-run encapsulation for multiplayer.
 - [x] ~~Slice uses its own per-player states instead of `Match`~~ — RESOLVED (0.7.0): the
@@ -105,3 +105,16 @@
 - [ ] Enemy pooling / perf for large invasions.
 - [ ] Timed/triggered invasions beyond `startDelay` waves.
 - [ ] `RewardMult` from scaling is computed but not applied yet (pending Economy).
+
+## Progression & Rewards + Persistence (milestone)
+- [x] Pure `Progression` (XP -> levels) + spec; `ProfileSchema` v2 (`xp`/`level`) + migration + spec.
+- [x] `RewardService` grants currency + XP into the persistent profile (server-authoritative).
+- [x] Real `DataStoreStore` (DataStoreService + retry) injected into `SaveService`; in-memory fallback.
+- [x] Missions & encounters apply rewards (`reward` on mission + objective complete); client feed.
+- [x] `configs/Experience` curve, `configs/Economy` gold, Chapter 1 real reward values.
+
+### Progression tech debt (recorded — not scheduled)
+- [ ] Cross-place session locking (DataStore dupe protection via UpdateAsync + lock token).
+- [ ] Apply scaling `RewardMult` to reward amounts.
+- [ ] Hub spend/upgrades + economy sinks; Loot/crafting.
+- [ ] Replicate currency/level to the client for a real HUD (currently print-only).

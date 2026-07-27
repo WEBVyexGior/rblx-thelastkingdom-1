@@ -15,6 +15,9 @@ local Settings = {
 		GrantStarterWeapon = true,
 		-- Auto-run the campaign (ChapterService) in the Forgotten Lands place.
 		EnableCampaign = true,
+		-- Use real DataStore persistence when available; falls back to the in-memory
+		-- mock (e.g. Studio without API access) so gameplay always works.
+		UseDataStore = true,
 	},
 
 	-- Campaign entry (dev flow). Later the chapter/mission comes from teleport data.

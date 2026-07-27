@@ -1,7 +1,8 @@
 # The Last Kingdom — Economy, Resources & Monetization (Design)
 
-**Status:** Design only — `configs/Economy.luau` and `configs/Loot.luau` exist as schema
-skeletons with **no values**.
+**Status:** Partially implemented — a currency (`gold`) and a server-authoritative reward
+pipeline (currency + XP into the persistent profile) exist (Changelog 0.9.0, see
+`Progression.md`). Loot, upgrades, and the anti-P2W revive economy remain design.
 **Serves:** `../GameDesignDocument.md` §2 (NOT pay-to-win), §5 (Tier 2 — economy depth).
 **Source of truth:** the GDD vision; this is the design-of-record for the economy.
 
