@@ -70,7 +70,8 @@
       Mission System drives a `Match` lifecycle.
 - [x] ~~Objective lives in the orchestrator, not as `Mission` data~~ — RESOLVED (0.7.0):
       objectives are data in `configs/Missions.luau`.
-- [ ] No player-death UX (respawn far from the encounter, no re-route) — pending DeathSystem.
+- [x] ~~No player-death UX (respawn far, no re-route)~~ — RESOLVED (0.10.0): DeathService adds
+      death choices, revive, and total-wipe → Play Again.
 - [ ] No timeout / failure path if the objective is never reached.
 
 ## Mission & Objective System (integration milestone)
@@ -118,3 +119,18 @@
 - [ ] Apply scaling `RewardMult` to reward amounts.
 - [ ] Hub spend/upgrades + economy sinks; Loot/crafting.
 - [ ] Replicate currency/level to the client for a real HUD (currently print-only).
+
+## Death System (milestone)
+- [x] `Shared/Death/Enums` + `Net` DeathEvent/RequestDeathChoice.
+- [x] Pure `DeathGroup` (wipe / reviver / waiting) + spec.
+- [x] `DeathService`: respawn ownership, death detection, 3 choices, spectate, self-revive
+      (gold anti-P2W), free teammate revive, total wipe.
+- [x] `MissionRuntimeService` wipe → mission fail; `ChapterService` Play Again (respawn).
+- [x] Minimal client `DeathController`; `Economy.Revive` + `Settings.Death` config.
+
+### Death System tech debt (recorded — not scheduled)
+- [ ] Robux revive (MarketplaceService) alongside the gold path.
+- [ ] Diegetic death parchment + spectate camera (Tier 3 polish).
+- [ ] Real Hub teleport on "Back to Lobby" (needs the Multiplayer/teleport flow).
+- [ ] Cross-place party re-formation for "Wait" survivors.
+- [ ] Remove `Settings.Dev.StarterGold` before real content.

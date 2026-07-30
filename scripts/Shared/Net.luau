@@ -30,6 +30,9 @@ local EVENT_NAMES: { string } = {
 	"RequestMeleeAttack", -- client -> server: melee swing intent (server-validated)
 	"CombatEvent", -- server -> client: combat outcome notifications (hit feedback)
 	"MissionEvent", -- server -> client: mission/objective feed (start / objective / progress / complete / narrative)
+	"DeathEvent", -- server -> client: death state (downed / choices / revived / left / wiped)
+	"RequestDeathChoice", -- client -> server: a downed player's choice (Lobby / Revive / Wait)
+	"RequestPlayAgain", -- client -> server: retry the chapter after a run-over (Play Again)
 }
 local FUNCTION_NAMES: { string } = {}
 

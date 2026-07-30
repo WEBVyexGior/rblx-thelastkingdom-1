@@ -1,5 +1,29 @@
 # Changelog
 
+## Version 0.10.0 — Death System
+
+Death = WHAT HAPPENS WHEN YOU FALL. A foundational death/revive loop wired into the mission
+run. Placeholder feedback (prints), no UI/camera polish:
+
+- **Contract**: `Shared/Death/Enums` (Choice: Lobby/Revive/Wait; Status); `Net` +`DeathEvent`
+  / `RequestDeathChoice`.
+- **Domain (pure, tested)**: `DeathGroup` — wipe / reviver-available / waiting-group rules
+  (`DeathGroup.spec`).
+- **World**: `DeathService` owns respawn (`CharacterAutoLoads` off in the World) + death status;
+  detects death via `CombatService.EntityDied` (once per life); drives PARTY-AWARE choices
+  (solo: Lobby + Revive; party: also Wait), the spectate window, free teammate proximity revive,
+  self-revive (gold, anti-P2W: cost / cooldown / reduced HP), and run-over.
+- **Integration**: `MissionRuntimeService` registers the run's players (`DeathService.beginRun`,
+  guarded against re-entrant/stale fails via a run id) and fails the mission on a run-over. There
+  is NO auto-restart — players respawn idle and a manual Play Again (`RequestPlayAgain`) restarts
+  the chapter. Self-revive spends gold from the persistent profile.
+- **Client**: minimal `DeathController` (prints choices, keys 1/2/3).
+- **Content/config**: `Economy.Revive` + `Settings.Death`; dev starter gold
+  (`Settings.Dev.StarterGold`) so solo self-revive is testable.
+
+Resolves slice tech debt: player death now has real consequences and choices. Robux revive,
+diegetic UI, and real Hub teleport are follow-ups.
+
 ## Version 0.9.0 — Progression & Rewards + Persistence
 
 Progression = WHAT THE PLAYER EARNS. A real reward pipeline over durable saves; missions and

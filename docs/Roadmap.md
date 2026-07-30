@@ -35,7 +35,10 @@ Integration Milestone
   triggered by mission `Clear` objectives. See Changelog 0.8.0.
 - Progression & Rewards + Persistence ✅ — XP/levels, currency, a server-authoritative reward
   pipeline applied from missions & encounters, over real DataStore-backed saves (with an
-  in-memory fallback). See Changelog 0.9.0. Hardening tracked in Todo.
+  in-memory fallback). See Changelog 0.9.0.
+- Death System ✅ (foundation) — death choices (Lobby / Revive / Wait), spectate window, gold
+  anti-P2W + free teammate revive, total wipe → mission fail (Play Again). See Changelog 0.10.0.
+  Hardening tracked in Todo.
 
 Phase 6
 - Multiplayer ⬜

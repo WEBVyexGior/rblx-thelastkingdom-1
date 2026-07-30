@@ -22,6 +22,7 @@ local CombatService = require(script.Parent.CombatService)
 local HumanoidAdapter = require(Server.Domain.Combat.HumanoidAdapter)
 local InventoryService = require(Server.Services.InventoryService)
 local EquipmentService = require(Server.Services.EquipmentService)
+local DataService = require(Server.Services.DataService)
 local Enums = require(ReplicatedStorage.Shared.Combat.Enums)
 local InvEnums = require(ReplicatedStorage.Shared.Inventory.Enums)
 local Constants = require(ReplicatedStorage.Shared.Constants)
@@ -87,8 +88,26 @@ local function onCharacterAdded(player: Player, character: Model)
 	bindings[player] = HumanoidAdapter.bind(entity.health, humanoid)
 end
 
+-- DEV: grant some starter gold (deferred until the profile has loaded) so self-revive
+-- is testable in a solo playtest. Behind the Settings.Dev flag.
+local function ensureStarterGold(player: Player)
+	local dev = Config.get("Settings").Dev
+	local amount = (dev and dev.StarterGold) or 0
+	if amount <= 0 then
+		return
+	end
+	task.defer(function()
+		local profile = DataService.get(player)
+		if profile and (profile.currency or 0) < amount then
+			profile.currency = amount
+			log:info(("dev: granted %d starter gold to %s"):format(amount, player.Name))
+		end
+	end)
+end
+
 local function onPlayerAdded(player: Player)
 	ensureStarterWeapon(player)
+	ensureStarterGold(player)
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
 	end)

@@ -26,7 +26,16 @@ local Economy = {
 		gold = { DisplayName = "Gold" }, -- the primary run currency
 	},
 	Upgrades = {},
-	Revive = {},
+	-- Anti-P2W revive rules (GDD §15 / systems/Economy.md). Gold-based for now; a Robux
+	-- path is a documented follow-up. A FREE teammate revive path always exists.
+	Revive = {
+		GoldCost = 100, -- self-revive costs earnings (anti-P2W)
+		ReviveHealthPercent = 0.5, -- revive at reduced HP (anti-P2W)
+		RewardPenaltyPercent = 0, -- reserved: trim end rewards after a paid revive
+		CooldownSeconds = 15, -- minimum time between self-revives
+		FreeTeammateReviveSeconds = 3, -- proximity-hold time for a free teammate revive
+		TeammateReviveRadius = 10, -- studs a living teammate must be within
+	},
 }
 
 return table.freeze(Economy)

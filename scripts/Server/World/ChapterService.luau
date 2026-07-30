@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Server = script.Parent.Parent
 local GameService = require(Server.Services.GameService)
 local MissionRuntimeService = require(script.Parent.MissionRuntimeService)
+local Net = require(ReplicatedStorage.Shared.Net)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
@@ -33,6 +34,7 @@ local log = Logger.new("ChapterService")
 local START_DELAY = 2
 
 local activeChapterId: string? = nil
+local lastChapterId: string? = nil -- the chapter to retry after a run-over (Play Again)
 local missionQueue: { string } = {}
 
 local function startNextMission()
@@ -47,7 +49,10 @@ local function startNextMission()
 			task.wait(START_DELAY)
 			startNextMission()
 		else
-			log:info("mission failed; chapter halted at " .. tostring(activeChapterId))
+			-- Run-over: HALT (no auto-restart). Remember the chapter so players can
+			-- Play Again on request; DeathService has respawned them idle at spawn.
+			log:info("mission failed; chapter halted (awaiting Play Again): " .. tostring(activeChapterId))
+			lastChapterId = activeChapterId
 			activeChapterId = nil
 		end
 	end)
@@ -102,6 +107,16 @@ function ChapterService.Start()
 	if #Players:GetPlayers() > 0 then
 		task.delay(START_DELAY, tryStart)
 	end
+
+	-- Play Again after a run-over: restart the remembered chapter (once, if idle).
+	Net.getEvent("RequestPlayAgain").OnServerEvent:Connect(function()
+		if not activeChapterId and lastChapterId then
+			local chapter = lastChapterId
+			lastChapterId = nil
+			log:info("Play Again -> restarting chapter " .. chapter)
+			ChapterService.startChapter(chapter)
+		end
+	end)
 
 	log:info("ready")
 end

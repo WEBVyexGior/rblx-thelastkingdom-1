@@ -25,6 +25,16 @@ local Settings = {
 		StartChapter = "chapter_one",
 	},
 
+	-- Death system timings.
+	Death = {
+		SpectateSeconds = 60, -- window before a downed player is auto-resolved to Wait
+	},
+
+	-- DEV/TEST conveniences (remove/zero before real content).
+	Dev = {
+		StarterGold = 200, -- grant on join so self-revive is testable solo
+	},
+
 	-- TEST placeholders for combat — NOT balanced values.
 	Combat = {
 		StarterWeaponItemId = "starter_sword", -- item id the starter kit grants + equips

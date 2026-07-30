@@ -15,6 +15,19 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Guard: a mis-synced place can end up with TWO Server trees and boot everything
+-- twice (duplicate remotes/connections, "Duplicate mission id" on the second
+-- MissionService.Init, …). Abort the second boot with a clear message instead of
+-- crashing cryptically. A clean place (one Rojo project) never trips this.
+if ServerScriptService:GetAttribute("TLK_ServerBooted") then
+	warn(
+		"[Bootstrap] DUPLICATE Server copy detected in this place — aborting the second boot. "
+			.. "Rebuild the place from ONE Rojo project; never sync both projects into one place."
+	)
+	return
+end
+ServerScriptService:SetAttribute("TLK_ServerBooted", true)
+
 local Loader = require(ReplicatedStorage.Shared.Framework.Loader)
 
 -- Ensure the networking layer is initialised before services start (no-op while

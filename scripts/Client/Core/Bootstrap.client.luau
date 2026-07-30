@@ -10,6 +10,14 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Guard against a duplicated Client tree booting twice for the same player (a
+-- mis-synced place). A clean place never trips this.
+if _G.TLK_ClientBooted then
+	warn("[Bootstrap] DUPLICATE Client copy detected — aborting the second boot.")
+	return
+end
+_G.TLK_ClientBooted = true
+
 -- Wait for shared code to replicate before requiring it.
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Framework = Shared:WaitForChild("Framework")

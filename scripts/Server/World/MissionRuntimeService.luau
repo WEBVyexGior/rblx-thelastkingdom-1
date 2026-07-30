@@ -23,6 +23,7 @@ local MissionRun = require(Server.Domain.MissionRun)
 local Match = require(Server.Domain.Match)
 local ObjectiveTrackers = require(script.Parent.ObjectiveTrackers)
 local RewardService = require(Server.Services.RewardService)
+local DeathService = require(script.Parent.DeathService)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -41,6 +42,8 @@ local activeStop: (() -> ())? = nil -- the current objective's tracker stop
 local activeMarker: BasePart? = nil -- visible waypoint for the current position objective
 local runPlayers: { Player } = {}
 local onFinishedCb: ((completed: boolean) -> ())? = nil
+local finishing = false -- guards finishRun against re-entrancy (stop -> onFail -> fail -> finishRun)
+local runId = 0 -- identifies the active run; a stale wipe callback from an old run is ignored
 local nextMatchId = 0
 
 local function fire(payload: any)
@@ -104,8 +107,15 @@ local function applyReward(reward: any)
 end
 
 local function finishRun(completed: boolean)
+	-- Non-re-entrant: stopTracker() below can bubble a tracker onFail -> ctx.fail ->
+	-- finishRun again; ignore that (and any double external call).
+	if finishing or not activeRun then
+		return
+	end
+	finishing = true
 	stopTracker()
 	clearMarker()
+	DeathService.endRun()
 	local match = activeMatch
 	if match then
 		match:setState(Match.States.Completing)
@@ -133,6 +143,7 @@ local function finishRun(completed: boolean)
 	activeMatch = nil
 	runPlayers = {}
 	onFinishedCb = nil
+	finishing = false -- cleared before the callback so a fresh run (Play Again) can finish later
 	if cb then
 		cb(completed)
 	end
@@ -251,10 +262,20 @@ function MissionRuntimeService.startMission(
 	activeRun = MissionRun.new(def)
 
 	nextMatchId += 1
+	runId += 1
+	local myRunId = runId
 	local match = Match.new("match_world_" .. nextMatchId, missionId, {})
 	match:setState(Match.States.Loading)
 	match:setState(Match.States.Active)
 	activeMatch = match
+
+	-- The DeathService tracks this run's players and calls back on a total wipe. The
+	-- runId check ignores a stale wipe callback fired from a previous (already-ended) run.
+	DeathService.beginRun(runPlayers, function()
+		if runId == myRunId and activeRun then
+			finishRun(false)
+		end
+	end)
 
 	log:info(("starting mission '%s' for %d player(s)"):format(missionId, #runPlayers))
 	fire({ kind = "missionStart", missionId = def.id, text = def.intro })
