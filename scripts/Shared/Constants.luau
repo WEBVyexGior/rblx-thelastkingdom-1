@@ -18,11 +18,11 @@ Constants.GAME_NAME = "The Last Kingdom"
 -- Maximum party size supported by the experience (design pillar).
 Constants.MAX_PARTY_SIZE = 8
 
--- Published PlaceIds for cross-place teleporting between the two games.
--- Filled in once each place is published in Roblox.
+-- Published PlaceIds for cross-place teleporting inside the one experience
+-- ("The Last Kingdom", universe/GameId 10544437905).
 Constants.PlaceIds = table.freeze({
-	KingdomHub = 0, -- TODO: set to the published Kingdom Hub PlaceId
-	ForgottenLands = 0, -- TODO: set to the published Forgotten Lands PlaceId
+	KingdomHub = 102328554416065, -- start place: the lobby
+	ForgottenLands = 128067046328959, -- second place: the gameplay world
 })
 
 -- Which of the two places a given server is running (detected at runtime).
