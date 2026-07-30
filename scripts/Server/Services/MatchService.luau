@@ -34,13 +34,23 @@ local function generateId(): string
 	return "match_" .. nextId
 end
 
--- Starts a run for the leader's party on the given mission. Returns the Match, or
--- nil if the leader has no party.
-function MatchService.startMatch(leader: Player, missionId: string): Match.Match?
+-- Starts a run for the leader's party on the given mission. `context` carries the
+-- optional run details chosen in the lobby (chapter, difficulty tier).
+--
+-- Returns the Match and whether the party actually got moved. The two are
+-- separate on purpose: the match exists the moment it is created, but the
+-- teleport can still fail (a full reserved server, an outage, Studio), and the
+-- caller has to be able to tell its players so rather than leaving them standing
+-- in the lobby wondering.
+function MatchService.startMatch(
+	leader: Player,
+	missionId: string,
+	context: { chapterId: string?, difficulty: string? }?
+): (Match.Match?, boolean)
 	local party = PartyService.getParty(leader)
 	if not party then
 		log:warn("startMatch: no party for " .. leader.Name)
-		return nil
+		return nil, false
 	end
 
 	-- Missions may be unregistered in Phase 2 (empty registry) — allowed, noted.
@@ -57,10 +67,16 @@ function MatchService.startMatch(leader: Player, missionId: string): Match.Match
 	matches[match.id] = match
 	match:setState(Match.States.Loading)
 
-	local data = TeleportService.buildOutboundData(match.id, missionId, userIds)
-	TeleportService.teleportPartyToWorld(party.members, data)
+	local data = TeleportService.buildOutboundData(match.id, missionId, userIds, context)
+	local sent = TeleportService.teleportPartyToWorld(party.members, data)
+	if not sent then
+		-- The run never began. Drop it rather than leaving a phantom match
+		-- occupying an id that nothing will ever end.
+		match:setState(Match.States.Ended)
+		matches[match.id] = nil
+	end
 
-	return match
+	return match, sent
 end
 
 function MatchService.getMatch(id: string): Match.Match?

@@ -33,6 +33,10 @@ local EVENT_NAMES: { string } = {
 	"DeathEvent", -- server -> client: death state (downed / choices / revived / left / wiped)
 	"RequestDeathChoice", -- client -> server: a downed player's choice (Lobby / Revive / Wait)
 	"RequestPlayAgain", -- client -> server: retry the chapter after a run-over (Play Again)
+	"TrainEvent", -- server -> client: hub departure feed (prompt / status / aboard / departing)
+	"RequestTrainBoard", -- client -> server: call a party of N, or take a seat in the one forming
+	"RequestTrainLeave", -- client -> server: step off the train before it departs
+	"RequestTrainDepart", -- client -> server: the party leader leaves early, skipping the countdown
 }
 local FUNCTION_NAMES: { string } = {}
 

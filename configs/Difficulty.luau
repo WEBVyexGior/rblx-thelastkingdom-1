@@ -27,7 +27,13 @@ local Difficulty = {
 		[7] = { EnemyCountMult = 2.7, EnemyHealthMult = 1.35, EliteWeight = 0.35, RewardMult = 2.8 },
 		[8] = { EnemyCountMult = 3.0, EnemyHealthMult = 1.4, EliteWeight = 0.4, RewardMult = 3.1 },
 	},
-	Tiers = {},
+	-- Party-size tiers, in ascending order: a group of `count` players gets the
+	-- first tier whose `maxPlayers` it fits into. Shown in the lobby when boarding
+	-- and carried across in the teleport payload.
+	Tiers = {
+		{ id = "Normal", maxPlayers = 4 },
+		{ id = "Hard", maxPlayers = 8 },
+	},
 }
 
 return table.freeze(Difficulty)

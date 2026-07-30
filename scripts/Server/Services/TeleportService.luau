@@ -28,23 +28,30 @@ TeleportService.Name = "TeleportService"
 
 local log = Logger.new("TeleportService")
 
--- Data carried Hub -> Forgotten Lands.
+-- Data carried Hub -> Forgotten Lands. `chapterId` / `difficulty` are set once a
+-- run is started from the lobby (the departure train); they are absent for the
+-- dev flow that boots straight into the World place.
 export type OutboundData = {
 	matchId: string,
 	missionId: string,
 	memberUserIds: { number },
+	chapterId: string?,
+	difficulty: string?,
 }
 
--- Builds the outbound teleport payload.
+-- Builds the outbound teleport payload. `extra` carries the optional run context.
 function TeleportService.buildOutboundData(
 	matchId: string,
 	missionId: string,
-	memberUserIds: { number }
+	memberUserIds: { number },
+	extra: { chapterId: string?, difficulty: string? }?
 ): OutboundData
 	return {
 		matchId = matchId,
 		missionId = missionId,
 		memberUserIds = memberUserIds,
+		chapterId = if extra then extra.chapterId else nil,
+		difficulty = if extra then extra.difficulty else nil,
 	}
 end
 
@@ -53,7 +60,13 @@ function TeleportService.getArrivingData(player: Player): any
 	return player:GetJoinData().TeleportData
 end
 
-local function teleport(placeId: number, players: { Player }, data: any, label: string): boolean
+local function teleport(
+	placeId: number,
+	players: { Player },
+	data: any,
+	label: string,
+	reserve: boolean?
+): boolean
 	if placeId == 0 then
 		log:warn(label .. " skipped: target PlaceId not set")
 		return false
@@ -62,6 +75,22 @@ local function teleport(placeId: number, players: { Player }, data: any, label: 
 	if data ~= nil then
 		options:SetTeleportData(data)
 	end
+
+	-- A co-op run belongs to ONE party: reserve a private server so the group is
+	-- never matchmade into a stranger's mission. If reserving fails (e.g. Studio
+	-- without API access) we degrade to a public server rather than stranding the
+	-- party in the lobby.
+	if reserve then
+		local reserved, accessCode = pcall(function()
+			return EngineTeleport:ReserveServer(placeId)
+		end)
+		if reserved and accessCode then
+			options.ReservedServerAccessCode = accessCode
+		else
+			log:warn(label .. ": ReserveServer failed, falling back to a public server")
+		end
+	end
+
 	local ok, err = pcall(function()
 		EngineTeleport:TeleportAsync(placeId, players, options)
 	end)
@@ -73,7 +102,7 @@ end
 
 -- Sends a party into a fresh private Forgotten Lands server.
 function TeleportService.teleportPartyToWorld(players: { Player }, data: OutboundData): boolean
-	return teleport(Constants.PlaceIds.ForgottenLands, players, data, "Teleport to world")
+	return teleport(Constants.PlaceIds.ForgottenLands, players, data, "Teleport to world", true)
 end
 
 -- Returns players to the Kingdom Hub, optionally carrying run-result data.
