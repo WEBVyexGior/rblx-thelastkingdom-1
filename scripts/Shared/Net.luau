@@ -37,6 +37,7 @@ local EVENT_NAMES: { string } = {
 	"RequestTrainBoard", -- client -> server: call a party of N, or take a seat in the one forming
 	"RequestTrainLeave", -- client -> server: step off the train before it departs
 	"RequestTrainDepart", -- client -> server: the party leader leaves early, skipping the countdown
+	"InteractionEvent", -- server -> client: entered / left a lobby interaction point (NPC, chest, …)
 }
 local FUNCTION_NAMES: { string } = {}
 

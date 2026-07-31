@@ -90,14 +90,26 @@ local Hub = {
 	Lights = {
 		Enabled = true,
 
-		-- Never retune lights the game itself created (the boarding markers).
-		IgnoreFolders = { "TrainRuntime" },
+		-- Never retune lights the game itself created — the boarding markers and
+		-- the interaction rings own their look, and having this service overwrite
+		-- them would quietly undo it.
+		IgnoreFolders = { "TrainRuntime", "InteractionRuntime" },
 
 		-- A light is matched by the names of the models it sits inside. FIRST
 		-- MATCH WINS, so keep specific names above generic ones.
 		Groups = {
 			{
-				Name = "Lanterns", -- the lane posts: the camp's baseline light
+				-- TEST (2026-07-31): wide, soft throw down the lanes. Sits ABOVE
+				-- the generic "Lantern" group so the posts are claimed first.
+				Name = "LanternPosts",
+				Match = { "Lantern Post" },
+				Brightness = 0.8,
+				Range = 40,
+				Color = Color3.fromRGB(255, 186, 112),
+				Shadows = false,
+			},
+			{
+				Name = "Lanterns", -- any other lantern: the camp's baseline light
 				Match = { "Lantern" },
 				Brightness = 0.9,
 				Range = 16,
@@ -157,6 +169,17 @@ local Hub = {
 		Headline = "FORTY YEARS AWAY FROM HOME",
 		Line = "The road back begins...",
 		Footer = "Preparing the Forgotten Lands…",
+	},
+
+	-- The experience is published under the group, not a personal account.
+	--
+	-- Group membership is the ONLY social action a game can actually verify
+	-- (`player:IsInGroup`), and the only one Roblox permits rewarding. Likes and
+	-- favourites are neither checkable nor allowed to be paid for — they may be
+	-- asked for politely and nothing more.
+	Social = {
+		GroupId = 32361153,
+		GroupName = "Ancient Guardian Souls",
 	},
 
 	-- Shown on the departure panel. LogoAssetId stays empty until the real logo is
