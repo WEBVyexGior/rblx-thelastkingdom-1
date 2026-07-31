@@ -34,6 +34,7 @@ export type Script = {
 
 local cfg: any = nil
 local typeSound: Sound? = nil
+local voice: Sound? = nil
 
 local panel: Frame? = nil
 local titleLabel: TextLabel? = nil
@@ -57,19 +58,73 @@ local function stopTyping()
 	typing = false
 end
 
+--[[
+	A line is either a plain string or a table carrying a recording with it.
+	Everything below reads a line through these two, so both shapes work and the
+	config can gain voice one line at a time.
+]]
+local function textOf(entry: any): string
+	return if type(entry) == "table" then tostring(entry.Text) else tostring(entry)
+end
+
+local function soundOf(entry: any): string?
+	if type(entry) ~= "table" then
+		return nil
+	end
+	local id = entry.Sound
+	return if type(id) == "string" and id ~= "" then id else nil
+end
+
+-- Starts a recording and reports how long it runs, or 0 if there is none.
+-- TimeLength is zero until the asset arrives, so it is given a moment — but
+-- never more than a moment, because a missing sound must not stall the scene.
+local function speak(id: string?): number
+	local player = voice
+	if not player then
+		return 0
+	end
+	player:Stop()
+	if not id then
+		return 0
+	end
+
+	player.SoundId = id
+	local deadline = os.clock() + 2
+	while player.TimeLength <= 0 and os.clock() < deadline do
+		task.wait(0.05)
+	end
+
+	player:Play()
+	return player.TimeLength
+end
+
 local showLine: (position: number) -> ()
 
-local function typeLine(text: string)
+local function typeLine(entry: any)
 	local label = bodyLabel
 	if not label then
 		return
 	end
+
+	local text = textOf(entry)
 
 	stopTyping()
 	typeToken += 1
 	local token = typeToken
 	typing = true
 	label.Text = ""
+
+	-- If this line has a recording, the recording sets the pace: the words are
+	-- spread across it so they land together, rather than the text racing ahead
+	-- of the voice or trailing behind it.
+	local spoken = speak(soundOf(entry))
+	local characters = utf8.len(text) or #text
+	local rate = cfg.CharactersPerSecond
+	if spoken > 0.2 and characters > 0 then
+		-- Finish a little before the voice does; text that is still appearing
+		-- after the speaker has stopped reads as lag.
+		rate = characters / (spoken * 0.88)
+	end
 
 	task.spawn(function()
 		-- Step by unicode character, not by byte: a multi-byte character revealed
@@ -84,12 +139,14 @@ local function typeLine(text: string)
 			label.Text = shown
 
 			since += 1
-			if typeSound and since >= cfg.TypeSoundEvery then
+			-- The typing tick is a stand-in for a voice. When there is a real
+			-- one, it would only fight it.
+			if typeSound and spoken <= 0 and since >= cfg.TypeSoundEvery then
 				since = 0
 				typeSound:Play()
 			end
 
-			task.wait(1 / cfg.CharactersPerSecond)
+			task.wait(1 / rate)
 		end
 		if token ~= typeToken then
 			return
@@ -100,9 +157,14 @@ local function typeLine(text: string)
 		end
 
 		-- The scene plays itself: hold on the finished line, then move on. The
-		-- opening line gets longer, because it is the one that has to land.
+		-- opening line gets longer, because it is the one that has to land —
+		-- unless a recording is still speaking, in which case it decides.
 		if cfg.AutoAdvance and index < #lines then
 			local hold = if index == 1 then cfg.FirstHoldSeconds else cfg.HoldSeconds
+			if spoken > 0 then
+				local remaining = spoken - (characters / rate)
+				hold = math.max(remaining, 0) + 0.6
+			end
 			task.wait(hold)
 			if token == typeToken and not typing then
 				showLine(index + 1)
@@ -221,7 +283,7 @@ local function build(parent: ScreenGui)
 			-- Impatience finishes the line; it never skips it.
 			stopTyping()
 			if bodyLabel then
-				bodyLabel.Text = lines[index] or ""
+				bodyLabel.Text = textOf(lines[index] or "")
 			end
 			if hintLabel then
 				hintLabel.Visible = true
@@ -249,6 +311,14 @@ end
 
 function DialogueUI.mount()
 	cfg = Config.get("Interactions").Dialogue
+
+	-- One player reused for every spoken line, so a new line always cuts the
+	-- previous one off rather than talking over it.
+	local speaker = Instance.new("Sound")
+	speaker.Name = "DialogueVoice"
+	speaker.Volume = 1
+	speaker.Parent = SoundService
+	voice = speaker
 
 	-- Only built if a sound has actually been uploaded. A missing asset id would
 	-- otherwise mean a silent Sound object ticking away for nothing.
@@ -300,6 +370,10 @@ end
 
 function DialogueUI.close()
 	stopTyping()
+	-- Walking away from someone stops them talking.
+	if voice then
+		voice:Stop()
+	end
 	if panel then
 		panel.Visible = false
 	end

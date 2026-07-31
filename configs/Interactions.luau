@@ -67,12 +67,35 @@ local Interactions = {
 
 			Dialogue = {
 				Title = "THE VETERAN",
-				-- Provisional copy — the story beats are locked, the wording is not.
+				--[[
+					Provisional copy — the story beats are locked, the wording is not.
+
+					A line may be a plain string, or a table with a `Sound`. Give a
+					line a recording and the typing paces itself to that recording:
+					the words finish as the voice does, and the scene holds until
+					the line has been spoken rather than for a fixed count. Lines
+					without one keep the default speed and hold.
+
+					Record, upload at create.roblox.com/dashboard → Audio, wait for
+					moderation, then paste the id below as "rbxassetid://123…".
+				]]
 				Lines = {
-					"Forty years we held that line. Forty years of a war that was never ours.",
-					"Word came in the spring. The kingdom has gone dark — and they say the king is no longer a king.",
-					"I am too old for the road. You are not.",
-					"Take a wagon. Take whoever will stand beside you. Go home, and see what is left of it.",
+					{
+						Text = "Forty years we held that line. Forty years of a war that was never ours.",
+						Sound = "",
+					},
+					{
+						Text = "Word came in the spring. The kingdom has gone dark — and they say the king is no longer a king.",
+						Sound = "",
+					},
+					{
+						Text = "I am too old for the road. You are not.",
+						Sound = "",
+					},
+					{
+						Text = "Take a wagon. Take whoever will stand beside you. Go home, and see what is left of it.",
+						Sound = "",
+					},
 				},
 			},
 		},
