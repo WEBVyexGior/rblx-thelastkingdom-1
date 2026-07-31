@@ -112,7 +112,9 @@ function TeleportScreen.build(copy: Copy?): ScreenGui
 		}),
 		Parent = frame,
 	})
-	Theme.thickenText(wordmark, 2.4)
+	-- Larger here than on the panel, so it can carry a touch more weight — but
+	-- still only a touch. See the note in DepartureUI.
+	Theme.thickenText(wordmark, 0.8)
 
 	rule(frame, 2, 420)
 

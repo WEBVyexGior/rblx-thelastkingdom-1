@@ -148,7 +148,9 @@ local function buildPanel(parent: ScreenGui)
 			}),
 			Parent = root,
 		})
-		Theme.thickenText(wordmark, 2)
+		-- Fondamento's strokes are already fine and looping; a heavy outline fills
+		-- the counters in and the word stops being readable. A hair is enough.
+		Theme.thickenText(wordmark, 0.5)
 	end
 
 	Components.label({
@@ -397,18 +399,15 @@ local function setAction(text: string, variant: string, visible: boolean)
 	button.Visible = visible
 	button.Text = text
 
-	-- Repaint and resize for the variant without rebuilding the button. The label
-	-- is warm sand-white in both states — the one thing that must never be hard
-	-- to read, and pure white looks cold against these colours.
+	-- Repaint and resize for the variant without rebuilding the button, taking the
+	-- label colour from the same table every other button uses — mostly white,
+	-- lightly tinted. See the contrast rule in Theme.
+	local spec = Components.Variants[variant] or Components.Variants.green
 	local gradient = button:FindFirstChildOfClass("UIGradient")
 	if gradient then
-		if variant == "green" then
-			gradient.Color = ColorSequence.new(Theme.Color.GreenLight, Theme.Color.Green)
-		else
-			gradient.Color = ColorSequence.new(Theme.Color.BordeauxSoft, Theme.Color.BordeauxMid)
-		end
+		gradient.Color = ColorSequence.new(spec.top, spec.bottom)
 	end
-	button.TextColor3 = Theme.Color.Cream
+	button.TextColor3 = spec.text
 
 	local width = if variant == "green" then ACTION_WIDE else ACTION_NARROW
 	TweenService:Create(button, Theme.Motion.Normal, {

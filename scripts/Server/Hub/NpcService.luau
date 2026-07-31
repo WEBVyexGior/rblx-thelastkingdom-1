@@ -58,6 +58,16 @@ end
 -- A lobby character is scenery: it must not walk, fall, be pushed, or advertise
 -- a health bar over its head.
 local function freeze(model: Model)
+	-- A statue needs neither an animator nor a heartbeat. Roblox ships Animate
+	-- and Health inside every avatar it builds; on a frozen NPC they only burn
+	-- cycles and confuse anything auditing scripts in the Workspace.
+	for _, name in { "Animate", "Health" } do
+		local script_ = model:FindFirstChild(name)
+		if script_ and (script_:IsA("BaseScript") or script_:IsA("ModuleScript")) then
+			script_:Destroy()
+		end
+	end
+
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None

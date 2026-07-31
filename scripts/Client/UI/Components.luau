@@ -205,15 +205,39 @@ end
 -- Buttons
 --============================================================================
 
+-- Every label here is `Theme.onDark(...)`: mostly white, holding just enough of
+-- the button's own colour to belong to it. See the rule in Theme.
 local VARIANTS = {
-	gold = { top = Theme.Color.GoldDim, bottom = Theme.Color.Void, text = Theme.Color.GoldBright },
-	green = { top = Theme.Color.GreenLight, bottom = Theme.Color.Green, text = Theme.Color.Cream },
-	ghost = { top = Theme.Color.Navy, bottom = Theme.Color.Ink, text = Theme.Color.Parchment },
-	-- Pure white glyphs: the stepper's +/- read as grey against the panel
-	-- otherwise, and they are the control the player uses most.
-	light = { top = Theme.Color.NavyLight, bottom = Theme.Color.Navy, text = Theme.Color.White },
-	danger = { top = Theme.Color.BordeauxSoft, bottom = Theme.Color.BordeauxMid, text = Theme.Color.Cream },
+	gold = {
+		top = Theme.Color.GoldDim,
+		bottom = Theme.Color.Void,
+		text = Theme.onDark(Theme.Color.GoldBright, 0.75),
+	},
+	green = {
+		top = Theme.Color.GreenLight,
+		bottom = Theme.Color.Green,
+		text = Theme.onDark(Theme.Color.GreenBright, 0.8),
+	},
+	ghost = {
+		top = Theme.Color.Navy,
+		bottom = Theme.Color.Ink,
+		text = Theme.onDark(Color3.fromRGB(168, 196, 236), 0.8),
+	},
+	-- Pure white, no tint at all: the stepper's +/- are the control the player
+	-- uses most and they must never be hunted for.
+	light = {
+		top = Theme.Color.NavyLight,
+		bottom = Theme.Color.Navy,
+		text = Theme.Color.White,
+	},
+	danger = {
+		top = Theme.Color.BordeauxSoft,
+		bottom = Theme.Color.BordeauxMid,
+		text = Theme.onDark(Color3.fromRGB(255, 158, 158), 0.8),
+	},
 }
+
+Components.Variants = VARIANTS
 
 function Components.button(props: ButtonProps): TextButton
 	local variant = VARIANTS[props.Variant or "ghost"] or VARIANTS.ghost

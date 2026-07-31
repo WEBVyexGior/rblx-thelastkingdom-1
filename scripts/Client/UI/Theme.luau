@@ -60,6 +60,27 @@ Theme.Color = {
 }
 
 --============================================================================
+-- Contrast
+--============================================================================
+
+--[[
+	THE RULE, and it is not negotiable: text on a dark surface is mostly WHITE.
+
+	The temptation is to tint a label with the surface's own colour — green text
+	on green, red on red — because it looks tasteful in isolation. On a dark
+	button it is unreadable, and the darker and richer the surface, the worse it
+	gets.
+
+	So a label takes 70-80% white and keeps only a fifth of its colour: enough to
+	belong to the button, never enough to disappear into it. `onDark` is how every
+	foreground colour in this game is produced — reach for it before typing a
+	Color3 for anything sitting on a dark background.
+]]
+function Theme.onDark(accent: Color3, whiteRatio: number?): Color3
+	return accent:Lerp(Theme.Color.White, whiteRatio or 0.8)
+end
+
+--============================================================================
 -- Type
 --============================================================================
 

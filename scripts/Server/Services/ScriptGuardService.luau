@@ -28,6 +28,7 @@
 	Location: ServerScriptService.Server.Services.ScriptGuardService
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -48,10 +49,49 @@ local function isCode(instance: Instance): boolean
 	return instance:IsA("BaseScript") or instance:IsA("ModuleScript")
 end
 
+-- The nearest Model ancestor that holds a Humanoid: a player's character, or an
+-- NPC rig.
+local function characterOf(instance: Instance): Model?
+	local model = instance:FindFirstAncestorOfClass("Model")
+	while model do
+		if model:FindFirstChildOfClass("Humanoid") then
+			return model
+		end
+		model = model:FindFirstAncestorOfClass("Model")
+	end
+	return nil
+end
+
+local function isPlayerCharacter(model: Model): boolean
+	if Players:GetPlayerFromCharacter(model) then
+		return true
+	end
+	-- `player.Character` is assigned a moment after the model is parented, so a
+	-- script arriving in that window would otherwise look ownerless. Falling back
+	-- to the name closes the race — characters are named after their player.
+	local named = Players:FindFirstChild(model.Name)
+	return named ~= nil and named:IsA("Player")
+end
+
 local function handle(instance: Instance): boolean
 	if not isCode(instance) then
 		return false
 	end
+
+	local character = characterOf(instance)
+	if character then
+		-- Roblox puts its OWN scripts inside every character — Animate drives the
+		-- walk and idle animations, Health drives regeneration. Deleting those
+		-- breaks the player, and they come back on every single respawn.
+		if isPlayerCharacter(character) then
+			return false
+		end
+		-- An NPC rig is not automatically trustworthy, but silently gutting one
+		-- would break it just as thoroughly. Report and leave it alone.
+		log:warn(("script inside NPC rig (left in place): %s"):format(instance:GetFullName()))
+		return false
+	end
+
 	log:warn(("foreign %s in Workspace: %s"):format(instance.ClassName, instance:GetFullName()))
 	if remove then
 		instance:Destroy()
