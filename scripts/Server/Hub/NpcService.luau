@@ -103,8 +103,33 @@ local function place(point: any, anchor: Instance): boolean
 
 	avatar.Name = point.Name .. "Avatar"
 	avatar.Parent = anchor.Parent
-	-- Stand on the marker, turned to whatever angle the designer chose.
-	avatar:PivotTo(CFrame.new(pivot.Position) * CFrame.Angles(0, math.rad(point.Avatar.FaceAngle or 0), 0))
+
+	--[[
+		Stand him ON the ground, not IN it.
+
+		A character's pivot sits at its middle (the HumanoidRootPart), so pivoting
+		straight to the marker's position buries everything below the waist — which
+		is exactly what happened: a head poking out of the terrain.
+
+		So: find the real ground with a downward cast, then work out how far this
+		particular model's pivot sits above its own feet and lift it by that much.
+		Measuring the offset rather than assuming it keeps this correct for R6 and
+		R15 alike, and for whatever hats and accessories the avatar is wearing.
+	]]
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { avatar, anchor }
+
+	local hit = workspace:Raycast(pivot.Position + Vector3.new(0, 60, 0), Vector3.new(0, -300, 0), params)
+	local groundY = if hit then hit.Position.Y else pivot.Position.Y
+
+	local boxCFrame, boxSize = avatar:GetBoundingBox()
+	local footOffset = avatar:GetPivot().Position.Y - (boxCFrame.Position.Y - (boxSize.Y / 2))
+
+	avatar:PivotTo(
+		CFrame.new(pivot.Position.X, groundY + footOffset, pivot.Position.Z)
+			* CFrame.Angles(0, math.rad(point.Avatar.FaceAngle or 0), 0)
+	)
 	freeze(avatar)
 
 	-- The placeholder stays (the interaction ring is drawn from it) but stops
