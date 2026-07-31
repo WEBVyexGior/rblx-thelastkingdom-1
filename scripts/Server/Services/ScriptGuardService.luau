@@ -78,6 +78,15 @@ local function handle(instance: Instance): boolean
 		return false
 	end
 
+	-- Already on its way out. Checks here are deferred by a frame, which is long
+	-- enough for something else — NpcService stripping Animate off an avatar, say
+	-- — to have removed it first. Without this the guard warns about scripts the
+	-- game itself just deleted, and reports them with no path because they no
+	-- longer have a parent to name.
+	if not instance.Parent then
+		return false
+	end
+
 	local character = characterOf(instance)
 	if character then
 		-- Roblox puts its OWN scripts inside every character — Animate drives the
