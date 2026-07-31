@@ -164,6 +164,12 @@ local function typeLine(entry: any)
 			if spoken > 0 then
 				local remaining = spoken - (characters / rate)
 				hold = math.max(remaining, 0) + 0.6
+			else
+				-- No voice: give the reader a second for every line the text
+				-- wraps onto. A four-word line and a two-line one should not sit
+				-- on screen for the same time.
+				local wrapped = math.max(1, math.ceil(characters / cfg.CharactersPerLine))
+				hold += wrapped * cfg.ExtraSecondsPerLine
 			end
 			task.wait(hold)
 			if token == typeToken and not typing then

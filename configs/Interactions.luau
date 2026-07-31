@@ -39,6 +39,13 @@ local Interactions = {
 		HoldSeconds = 3, -- every line after it
 		AutoAdvance = true,
 
+		-- Long lines need longer on screen than short ones, so the hold grows
+		-- with the text instead of being written out per line: roughly one extra
+		-- second for every line it wraps onto. Ignored once a line has a voice —
+		-- there, the recording decides.
+		CharactersPerLine = 70,
+		ExtraSecondsPerLine = 1,
+
 		-- A soft tick under the typing. Upload a short, quiet sound and paste its
 		-- id here; empty means silence, which is better than a wrong sound.
 		TypeSoundId = "",
