@@ -56,6 +56,17 @@ Theme.Color = {
 	GreenLight = Color3.fromRGB(74, 132, 84),
 	GreenBright = Color3.fromRGB(126, 196, 138),
 
+	-- The forge. Warm ember tones for heat, cost and upgrading — the only place
+	-- in the game allowed to glow orange, so the blacksmith reads as its own
+	-- room without leaving the palette.
+	Ember = Color3.fromRGB(196, 88, 32),
+	EmberLight = Color3.fromRGB(238, 132, 54),
+	EmberBright = Color3.fromRGB(255, 186, 108),
+
+	-- Cold steel, for blades and stat readouts: the counterweight to the ember.
+	Steel = Color3.fromRGB(104, 126, 152),
+	SteelLight = Color3.fromRGB(158, 182, 208),
+
 	Shadow = Color3.fromRGB(0, 0, 0),
 }
 

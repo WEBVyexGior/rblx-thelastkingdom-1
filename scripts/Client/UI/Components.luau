@@ -236,6 +236,12 @@ local VARIANTS = {
 		bottom = Theme.Color.BordeauxMid,
 		text = Theme.onDark(Color3.fromRGB(255, 158, 158), 0.8),
 	},
+	-- The forge's own action: buying a level of steel.
+	ember = {
+		top = Theme.Color.EmberLight,
+		bottom = Theme.Color.Ember,
+		text = Theme.onDark(Theme.Color.EmberBright, 0.82),
+	},
 }
 
 Components.Variants = VARIANTS

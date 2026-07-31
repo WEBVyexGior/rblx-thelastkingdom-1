@@ -38,6 +38,9 @@ local EVENT_NAMES: { string } = {
 	"RequestTrainLeave", -- client -> server: step off the train before it departs
 	"RequestTrainDepart", -- client -> server: the party leader leaves early, skipping the countdown
 	"InteractionEvent", -- server -> client: entered / left a lobby interaction point (NPC, chest, …)
+	"ForgeEvent", -- server -> client: the blacksmith's stock, gold and upgrade results
+	"RequestForgeState", -- client -> server: open the forge / refresh it
+	"RequestForgeUpgrade", -- client -> server: buy the next level of one weapon
 }
 local FUNCTION_NAMES: { string } = {}
 

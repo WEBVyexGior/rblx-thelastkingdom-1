@@ -76,6 +76,16 @@ local Interactions = {
 				},
 			},
 		},
+
+		{
+			Id = "blacksmith",
+			Screen = "Blacksmith",
+			Folder = "NPCs",
+			Name = "Blacksmith",
+			Radius = 9,
+			-- A hand-placed model already stands here, so no avatar is fetched.
+			Avatar = { UserId = 0, FaceAngle = 0 },
+		},
 	},
 }
 
