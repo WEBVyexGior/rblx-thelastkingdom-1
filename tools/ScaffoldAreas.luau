@@ -42,14 +42,33 @@ local BORDEAUX = Color3.fromRGB(126, 30, 43)
 
 --==========================================================================
 
-local old = workspace:FindFirstChild("Gameplay")
-if old then
-	old:Destroy()
+--[[
+	Replaces only the MARKERS, never the geometry.
+
+	This used to destroy Workspace.Gameplay outright, which meant running it
+	after tools/BuildWorld deleted the entire world — and the order you happened
+	to run two tools in is a terrible thing to have to remember. Now each area's
+	`Structure` model is lifted out, the markers are rebuilt around it, and it is
+	put back. Run these two in any order, as many times as you like.
+]]
+local root = workspace:FindFirstChild("Gameplay")
+if not root then
+	root = Instance.new("Folder")
+	root.Name = "Gameplay"
+	root.Parent = workspace
 end
 
-local root = Instance.new("Folder")
-root.Name = "Gameplay"
-root.Parent = workspace
+-- Park anything built by another tool somewhere safe while the markers are
+-- rebuilt.
+local keep = {}
+for _, node in ipairs(root:GetChildren()) do
+	local structure = node:FindFirstChild("Structure")
+	if structure then
+		structure.Parent = nil
+		keep[node.Name] = structure
+	end
+	node:Destroy()
+end
 
 local function marker(parent: Instance, name: string, position: Vector3, colour: Color3, size: Vector3?)
 	local part = Instance.new("Part")
@@ -102,7 +121,14 @@ for index, area in ipairs(AREAS) do
 	local gate = marker(node, "Gate", Vector3.new(0, GROUND + 8, z - 110), BORDEAUX, Vector3.new(28, 18, 2))
 	gate.Transparency = 0.7
 
-	print(("[Scaffold] %s at z=%d"):format(area.name, z))
+	-- Give this area its geometry back, if another tool had already built it.
+	local structure = keep[area.name]
+	if structure then
+		structure.Parent = node
+		print(("[Scaffold] %s at z=%d (kept its Structure)"):format(area.name, z))
+	else
+		print(("[Scaffold] %s at z=%d"):format(area.name, z))
+	end
 end
 
 print(("[Scaffold] DONE — %d areas in Workspace.Gameplay, %d studs apart."):format(#AREAS, SPACING))
