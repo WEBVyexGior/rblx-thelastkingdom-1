@@ -22,6 +22,7 @@ local CombatService = require(script.Parent.CombatService)
 local EnemyService = require(script.Parent.EnemyService)
 local WaveService = require(script.Parent.WaveService)
 local Objective = require(Server.Domain.Objective)
+local Markers = require(ReplicatedStorage.Shared.World.Markers)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
 local log = Logger.new("ObjectiveTrackers")
@@ -78,9 +79,26 @@ end
 
 local Trackers = {}
 
+-- Objective positions may be written as coordinates or as the name of a marker
+-- in the map (see Shared.World.Markers). A missing marker is announced loudly:
+-- silently falling back to the origin would put the objective somewhere the
+-- player can never reach, and read as a broken mission rather than a typo.
+local function targetOf(objective: Objective.Objective, label: string): Vector3
+	local resolved = Markers.resolve(objective.def.position)
+	if resolved then
+		return resolved
+	end
+	log:warn(("%s: cannot resolve position for objective '%s' (%s)"):format(
+		label,
+		tostring(objective.def.id),
+		tostring(objective.def.position)
+	))
+	return Vector3.zero
+end
+
 -- Reach: complete when any player is within radius of the target position.
 function Trackers.Reach(objective: Objective.Objective, ctx: Context): () -> ()
-	local pos = objective.def.position :: Vector3
+	local pos = targetOf(objective, "Reach")
 	local radius = objective.def.radius or 8
 	local finished = false
 	return everyInterval(DETECTION_INTERVAL, function()
@@ -96,7 +114,7 @@ end
 
 -- Interact: proximity-hold — stay within radius for a short time.
 function Trackers.Interact(objective: Objective.Objective, ctx: Context): () -> ()
-	local pos = objective.def.position :: Vector3
+	local pos = targetOf(objective, "Interact")
 	local radius = objective.def.radius or 6
 	local held = 0
 	local finished = false
@@ -180,7 +198,7 @@ end
 -- Defend: keep a spawned neutral target alive for `target` seconds; fail if it dies.
 function Trackers.Defend(objective: Objective.Objective, ctx: Context): () -> ()
 	local seconds = objective.target
-	local pos = objective.def.position :: Vector3
+	local pos = targetOf(objective, "Defend")
 	local spawns = objective.def.spawns
 	local npcId = (spawns and spawns[1] and spawns[1].enemyId) or DEFAULT_NPC
 	local id = EnemyService.spawn(npcId, pos)
@@ -217,7 +235,7 @@ end
 -- Escort: move a spawned neutral NPC toward the destination; complete on arrival,
 -- fail if it dies. Foundational kinematic movement (no pathfinding).
 function Trackers.Escort(objective: Objective.Objective, ctx: Context): () -> ()
-	local dest = objective.def.position :: Vector3
+	local dest = targetOf(objective, "Escort")
 	local radius = objective.def.radius or 6
 	local spawns = objective.def.spawns
 	local spec = spawns and spawns[1]

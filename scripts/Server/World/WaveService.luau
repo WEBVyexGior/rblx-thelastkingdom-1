@@ -22,6 +22,7 @@ local EncounterRun = require(Server.Domain.EncounterRun)
 local EnemyService = require(script.Parent.EnemyService)
 local CombatService = require(script.Parent.CombatService)
 local Scaling = require(ReplicatedStorage.Shared.Scaling)
+local Markers = require(ReplicatedStorage.Shared.World.Markers)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -114,7 +115,16 @@ function WaveService.startEncounter(encounterId: string, ctx: Context): () -> ()
 		end
 		local spawnedCount = 0
 		for _, group in wave.groups do
-			local pos = def.spawnPoints[group.spawnPoint]
+			-- A spawn point is coordinates, or the name of a marker in the map
+			-- (see Shared.World.Markers) so a designer can drag it.
+			local pos = Markers.resolve(def.spawnPoints[group.spawnPoint])
+			if not pos then
+				log:warn(("encounter '%s': spawn point '%s' could not be resolved (%s)"):format(
+					tostring(def.id),
+					tostring(group.spawnPoint),
+					tostring(def.spawnPoints[group.spawnPoint])
+				))
+			end
 			if pos then
 				local count = scaledCount(group.count)
 				local spread = group.spread or 0

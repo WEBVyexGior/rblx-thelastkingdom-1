@@ -31,14 +31,16 @@ local Missions = {
 				type = "Reach",
 				description = "[PLACEHOLDER] Explore ahead — reach the survivor's marker.",
 				completionText = "[PLACEHOLDER LORE] A survivor's marker. Something terrible passed through here.",
-				position = Vector3.new(0, 3, -30),
+				-- Named, not coordinates: drag the marker in Studio and the
+				-- objective follows it. See Shared.World.Markers.
+				position = "Area1_Outskirts.Objectives.SurvivorMarker",
 				radius = 8,
 			},
 			{
 				id = "reach_site",
 				type = "Reach",
 				description = "[PLACEHOLDER] Press on to the ruined site.",
-				position = Vector3.new(0, 3, -60),
+				position = "Area1_Outskirts.Objectives.RuinedSite",
 				radius = 10,
 			},
 			{

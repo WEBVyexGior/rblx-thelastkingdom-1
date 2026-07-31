@@ -18,10 +18,13 @@ local Encounters = {
 	chapter_one_ambush = {
 		id = "chapter_one_ambush",
 		mode = "Sequential",
+		-- Named markers rather than coordinates: place them in Studio, drag them
+		-- where the fight should come from, and this needs no edit. See
+		-- Shared.World.Markers, and tools/ScaffoldAreas to create them.
 		spawnPoints = {
-			north = Vector3.new(0, 3, -70),
-			east = Vector3.new(12, 3, -66),
-			west = Vector3.new(-12, 3, -66),
+			north = "Area1_Outskirts.Spawns.North",
+			east = "Area1_Outskirts.Spawns.East",
+			west = "Area1_Outskirts.Spawns.West",
 		},
 		waves = {
 			{
