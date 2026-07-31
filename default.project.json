@@ -56,6 +56,9 @@
         "$path": "ui/Hub"
       }
     },
+    "ReplicatedFirst": {
+      "$path": "scripts/ReplicatedFirst"
+    },
     "TestService": {
       "Tests": {
         "$path": "scripts/Tests"
