@@ -397,7 +397,7 @@ local function setAction(text: string, variant: string, visible: boolean)
 		return
 	end
 	button.Visible = visible
-	button.Text = text
+	Components.setText(button, text)
 
 	-- Repaint and resize for the variant without rebuilding the button, taking the
 	-- label colour from the same table every other button uses — mostly white,
@@ -407,7 +407,7 @@ local function setAction(text: string, variant: string, visible: boolean)
 	if gradient then
 		gradient.Color = ColorSequence.new(spec.top, spec.bottom)
 	end
-	button.TextColor3 = spec.text
+	Components.setTextColor(button, spec.text)
 
 	local width = if variant == "green" then ACTION_WIDE else ACTION_NARROW
 	TweenService:Create(button, Theme.Motion.Normal, {

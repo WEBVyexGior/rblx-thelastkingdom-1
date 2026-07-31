@@ -211,7 +211,8 @@ local VARIANTS = {
 	gold = {
 		top = Theme.Color.GoldDim,
 		bottom = Theme.Color.Void,
-		text = Theme.onDark(Theme.Color.GoldBright, 0.75),
+		-- The darkest surface of the five, so it takes the most white.
+		text = Theme.onDark(Theme.Color.GoldBright, 0.85),
 	},
 	green = {
 		top = Theme.Color.GreenLight,
@@ -239,15 +240,28 @@ local VARIANTS = {
 
 Components.Variants = VARIANTS
 
+--[[
+	Why the label is a CHILD of the button rather than the button's own Text:
+
+	A UIGradient tints EVERYTHING about the GuiObject it belongs to — background
+	AND text. Painting a button's background with a gradient therefore multiplies
+	its label by the same dark colours, so a near-white word on the gold variant
+	came out golden-brown and faded downwards. No amount of correcting the text
+	colour can win, because the gradient is applied afterwards.
+
+	A UIGradient does NOT reach into children. Moving the label one level down
+	lets the background keep its depth while the text renders at exactly the
+	colour it was given.
+
+	Use Components.setText / setTextColor to change it afterwards — writing to
+	`button.Text` would set the (empty, invisible) text underneath the label.
+]]
 function Components.button(props: ButtonProps): TextButton
 	local variant = VARIANTS[props.Variant or "ghost"] or VARIANTS.ghost
 
 	local button = Instance.new("TextButton")
 	button.Name = props.Name or "Button"
-	button.Text = props.Text or ""
-	Theme.applyFont(button, Theme.Role.Heading)
-	button.TextSize = props.TextSize or Theme.TextSize.Body
-	button.TextColor3 = variant.text
+	button.Text = ""
 	button.AutoButtonColor = false
 	button.BackgroundColor3 = variant.bottom
 	button.BorderSizePixel = 0
@@ -259,6 +273,18 @@ function Components.button(props: ButtonProps): TextButton
 
 	Theme.surface(button, variant.top, variant.bottom)
 	Theme.corner(button, Theme.Size.CornerSmall)
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.Text = props.Text or ""
+	Theme.applyFont(label, Theme.Role.Heading)
+	label.TextSize = props.TextSize or Theme.TextSize.Body
+	label.TextColor3 = variant.text
+	label.BackgroundTransparency = 1
+	label.BorderSizePixel = 0
+	label.Size = UDim2.fromScale(1, 1)
+	label.ZIndex = button.ZIndex + 1
+	label.Parent = button
 
 	-- Every button carries a metal border, per the art direction.
 	local stroke = Theme.goldStroke(button, Theme.Size.Stroke)
@@ -289,6 +315,22 @@ function Components.button(props: ButtonProps): TextButton
 
 	button.Parent = props.Parent
 	return button
+end
+
+-- The label lives one level down (see the note above), so these are how a
+-- button's wording and colour change after it has been built.
+function Components.setText(button: TextButton, text: string)
+	local label = button:FindFirstChild("Label")
+	if label and label:IsA("TextLabel") then
+		label.Text = text
+	end
+end
+
+function Components.setTextColor(button: TextButton, color: Color3)
+	local label = button:FindFirstChild("Label")
+	if label and label:IsA("TextLabel") then
+		label.TextColor3 = color
+	end
 end
 
 --============================================================================

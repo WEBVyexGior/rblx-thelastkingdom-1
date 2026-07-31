@@ -122,7 +122,7 @@ function showLine(position: number)
 	if nextButton then
 		-- The last line waits: the player leaves when they are ready, not when a
 		-- timer decides they have read enough.
-		nextButton.Text = if isLast then "FAREWELL" else "CONTINUE"
+		Components.setText(nextButton, if isLast then "FAREWELL" else "CONTINUE")
 	end
 end
 
