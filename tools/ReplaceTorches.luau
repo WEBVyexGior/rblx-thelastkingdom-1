@@ -75,11 +75,11 @@ print(("[Torches] found %d to replace"):format(#existing))
 --==========================================================================
 -- Geometry of the template
 --==========================================================================
-local templateCFrame, templateSize
+local _templateCFrame, templateSize
 if template:IsA("Model") then
-	templateCFrame, templateSize = template:GetBoundingBox()
+	_templateCFrame, templateSize = template:GetBoundingBox()
 else
-	templateCFrame, templateSize = template.CFrame, template.Size
+	_templateCFrame, templateSize = template.CFrame, template.Size
 end
 -- How deep the model is along the direction it faces. The back of that depth is
 -- what has to meet the wall.

@@ -571,8 +571,13 @@ local function tower(parent, name: string, at: Vector3, opts)
 			local aa = math.pi * (i / 5)
 			block(model, "Voussoir", Vector3.new(1.6, 2.2, 3.6), CFrame.new(doorPos + Vector3.new(math.cos(aa) * 4 * math.cos(a + math.pi / 2), 7 + math.sin(aa) * 4, math.cos(aa) * 4 * math.sin(a + math.pi / 2))) * CFrame.Angles(0, -a + math.pi / 2, -aa), C.stonePale, M.stone)
 		end
-		for step = 1, 7 do
-			block(model, "Step", Vector3.new(10, 2, 4), CFrame.new(at + outer * (R + 2 + step * 3.4) + Vector3.new(0, 22 - step * 3, 0)) * CFrame.Angles(0, -a + math.pi / 2, 0), C.stonePale, M.stone)
+		-- NO STEPS UP TO IT. A stair to a tower door is a stair onto the walls,
+		-- and a stair onto the walls is a way out of the map. What is left is a
+		-- door twenty studs up with its approach collapsed beneath it — which is
+		-- both unclimbable and exactly what happens to a stone stair in a ruin.
+		for i = 1, 8 do
+			local s = rng:NextNumber(3, 8)
+			block(model, "CollapsedStair", Vector3.new(s, s * rng:NextNumber(0.35, 0.7), s * rng:NextNumber(0.6, 1.1)), CFrame.new(at + outer * (R + 4 + rng:NextNumber(0, 12)) + Vector3.new(jitter(6), s * 0.3, jitter(6))) * CFrame.Angles(jitter(0.4), rng:NextNumber(0, 6), jitter(0.4)), if chance(0.5) then C.rock else C.stone, M.rock)
 		end
 	end
 
@@ -651,13 +656,9 @@ local function curtain(parent, name: string, from: Vector3, to: Vector3, opts)
 		end
 	end
 
-	-- Steps up to the wall-walk, at one end.
-	if DETAIL >= 2 and opts.steps then
-		local at = from + dir * 14
-		for step = 1, 12 do
-			block(model, "Step", sizeFor(9, 2.4, 5), CFrame.new(at + inward * (t / 2 + 6) + dir * (step * 5) + Vector3.new(0, from.Y + step * (h / 12), 0)), C.stonePale, M.stone)
-		end
-	end
+	-- There is deliberately NO stair to the wall-walk. The allure is visible
+	-- through the battlements, which is all it is for; giving it an approach
+	-- would hand the player a route onto the outer wall and out of the map.
 
 	if DETAIL >= 2 and opts.torches then
 		local n = math.max(1, math.floor(length / 90))
@@ -723,8 +724,8 @@ local Z_END = Z_START - CHAMBERS * CHAMBER_D
 -- The outer skin: four sealed sides. There is no invisible wall anywhere in
 -- this map — the castle is the boundary, which is the only boundary a player
 -- ever accepts.
-curtain(shell, "WestWall", Vector3.new(-HALF_W, 0, Z_START), Vector3.new(-HALF_W, 0, Z_END), { inward = Vector3.new(1, 0, 0), ruin = 0.12, torches = true, steps = true })
-curtain(shell, "EastWall", Vector3.new(HALF_W, 0, Z_START), Vector3.new(HALF_W, 0, Z_END), { inward = Vector3.new(-1, 0, 0), ruin = 0.12, torches = true, steps = true })
+curtain(shell, "WestWall", Vector3.new(-HALF_W, 0, Z_START), Vector3.new(-HALF_W, 0, Z_END), { inward = Vector3.new(1, 0, 0), ruin = 0.12, torches = true })
+curtain(shell, "EastWall", Vector3.new(HALF_W, 0, Z_START), Vector3.new(HALF_W, 0, Z_END), { inward = Vector3.new(-1, 0, 0), ruin = 0.12, torches = true })
 curtain(shell, "BackWall", Vector3.new(-HALF_W, 0, Z_END), Vector3.new(HALF_W, 0, Z_END), { inward = Vector3.new(0, 0, 1), ruin = 0.08 })
 
 -- The front wall, with the gate you arrived through.
@@ -864,9 +865,9 @@ local spawnZ = Z_START - 55
 local pad = group(ground, "SpawnPad")
 mass(pad, "Pad", Vector3.new(70, 2, 50), CFrame.new(0, 1, spawnZ), C.stonePale, M.cobble)
 if DETAIL >= 2 then
-	for i = -2, 2 do
-		block(pad, "Step", Vector3.new(70, 1.4, 5), CFrame.new(0, 0.7, spawnZ - 25 - i * 5), C.stonePale, M.stone)
-	end
+	-- A shallow lip rather than steps. Nothing in this map is called a step, so
+	-- that "remove every stair" stays a rule with no exceptions to remember.
+	block(pad, "Lip", Vector3.new(70, 1.4, 26), CFrame.new(0, 0.7, spawnZ - 34), C.stonePale, M.stone)
 	torch(pad, Vector3.new(-32, 4, spawnZ), 0, true)
 	torch(pad, Vector3.new(32, 4, spawnZ), 0, true)
 end
