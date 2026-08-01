@@ -43,6 +43,7 @@ local GAP_W = 46 -- the opening in each cross-wall
 local DETAIL = 3
 local BUILD_TERRAIN = true
 local BUILD_LIGHTING = true
+local BUILD_TORCHES = false -- lighting is placed by hand; see tools/PurgeLights
 local MAX_LIGHTS = 80
 local lightsUsed = 0
 
@@ -219,6 +220,12 @@ local function flame(parent, at: Vector3, size: number)
 end
 
 local function torch(parent, at: Vector3, facing: number, lit: boolean)
+	-- Off by default. Placing sixty torches by arithmetic gets sixty torches in
+	-- roughly the right place, and roughly is not good enough for the thing the
+	-- player's eye goes to first. They are placed by hand instead.
+	if not BUILD_TORCHES then
+		return nil
+	end
 	local model = group(parent, "Torch")
 	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(facing), 0)
 	block(model, "Bracket", Vector3.new(0.5, 0.5, 2.6), base * CFrame.new(0, 0, 1.2), C.iron, M.rusted)
@@ -636,8 +643,11 @@ local function curtain(parent, name: string, from: Vector3, to: Vector3, opts)
 			block(model, "Hole", sizeFor(3, 1, 2.6), CFrame.new(at + outer * (t / 2 + 3.4) + Vector3.new(0, from.Y + h - 0.6, 0)), C.ash, M.stone)
 		end
 		if not chance(opts.ruin or 0) then
-			block(model, "Merlon", sizeFor(8, 9, t), CFrame.new(at.X, from.Y + h + 8.5, at.Z), C.stoneDark, M.stone)
-			block(model, "Cap", sizeFor(8.4, 1, t + 0.6), CFrame.new(at.X, from.Y + h + 13.4, at.Z), C.stonePale, M.stone)
+			-- Merlons SIT ON the wall head. Centring them any higher leaves a gap
+			-- you can see daylight through, and battlements floating four studs
+			-- above their own wall is the fastest way to make stonework look fake.
+			block(model, "Merlon", sizeFor(8, 9, t), CFrame.new(at.X, from.Y + h + 4.5, at.Z), C.stoneDark, M.stone)
+			block(model, "Cap", sizeFor(8.4, 1, t + 0.6), CFrame.new(at.X, from.Y + h + 9.5, at.Z), C.stonePale, M.stone)
 		end
 	end
 
@@ -693,8 +703,9 @@ local function gatehouse(parent, at: Vector3)
 			block(model, "Machicolation", Vector3.new(7, 5, 5), CFrame.new(at + Vector3.new(i * 11, 77, -(WALL_T / 2 + 5))), C.stoneWarm, M.stone)
 			block(model, "Hole", Vector3.new(3, 1, 3), CFrame.new(at + Vector3.new(i * 11, 74.6, -(WALL_T / 2 + 5))), C.ash, M.stone)
 		end
+		-- Sitting on the span's head (which tops out at 75), not hovering above it.
 		for i = -4, 4 do
-			block(model, "Merlon", Vector3.new(7, 10, WALL_T + 8), CFrame.new(at + Vector3.new(i * 9, 85, 0)), C.stoneDark, M.stone)
+			block(model, "Merlon", Vector3.new(7, 10, WALL_T + 8), CFrame.new(at + Vector3.new(i * 9, 80, 0)), C.stoneDark, M.stone)
 		end
 		-- The portcullis, jammed part way down. Nobody raised it again.
 		for i = 0, math.floor(gh * 2 / 4) do
@@ -713,6 +724,16 @@ end
 --==========================================================================
 -- LAYOUT — the serpentine
 --==========================================================================
+-- Anything left by the old road-to-the-castle builder. Its Area5_Castle sat at
+-- z = -1900, which is straight through chamber 8 of this layout, and two
+-- castles occupying the same stone is not a look.
+for _, child in ipairs(root:GetChildren()) do
+	if string.match(child.Name, "^Area%d") then
+		child:Destroy()
+		print("[Battleground] removed leftover " .. child.Name)
+	end
+end
+
 local ground = folder(root, "Battleground")
 for _, child in ipairs(ground:GetChildren()) do
 	child:Destroy()
@@ -894,7 +915,9 @@ if BUILD_TERRAIN then
 	-- Solid, edge to edge, with a wide apron outside the walls so the horizon is
 	-- never the end of the world. No gaps anywhere: there is nothing to fall
 	-- through and nowhere to slip out.
-	local pad2 = 500
+	-- 800 studs of ground beyond the walls on every side: room to breathe, room
+	-- for whatever comes after this map, and no visible edge from anywhere inside.
+	local pad2 = 800
 	local tile = 100
 	for x = -HALF_W - pad2, HALF_W + pad2 - tile, tile do
 		for z = Z_END - pad2, Z_START + pad2 - tile, tile do
