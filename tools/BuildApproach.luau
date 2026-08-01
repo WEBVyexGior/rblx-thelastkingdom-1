@@ -102,11 +102,54 @@ approach.Parent = root
 
 local made = 0
 
+--==========================================================================
+-- The standing folder structure. Every place in this game uses the same five,
+-- so anything can be found in the same drawer whichever map you are in.
+--==========================================================================
+local BUCKETS = { "Buildings", "Nature", "Decorations", "NPCs", "Interactions" }
+local bucket = {}
+
+--[[
+	Nothing is placed over the moat.
+
+	The channel is carved out of the terrain, so anything dropped across it
+	hangs in mid-air over open water — and worse, it has to be fished out by
+	hand later. The causeway is the one thing allowed to cross, because it is
+	built to.
+]]
+local function overMoat(z: number, x: number): boolean
+	local inFrontChannel = math.abs(z - MOAT_Z) < (MOAT_W / 2 + 8)
+	local onCauseway = math.abs(x) < 22
+	return inFrontChannel and not onCauseway
+end
+
+--[[
+	MODEL vs FOLDER, and it matters more than it looks.
+
+	Studio selects the OUTERMOST Model you click. So if every skeleton on the
+	field lives inside one big Model called "TheDead", clicking a single rib
+	selects all two hundred of them and there is no way to delete just the one.
+
+	A Folder is not selectable that way. So: containers are FOLDERS, and only a
+	single, self-contained object — one skeleton, one corpse, one blood pool —
+	is a Model. Click a rib, get that skeleton. Click again, get that rib.
+]]
 local function group(parent: Instance, name: string): Model
 	local model = Instance.new("Model")
 	model.Name = name
 	model.Parent = parent
 	return model
+end
+
+local function folder(parent: Instance, name: string): Folder
+	local item = Instance.new("Folder")
+	item.Name = name
+	item.Parent = parent
+	return item
+end
+
+for _, name in BUCKETS do
+	bucket[name] = folder(approach, name)
 end
 
 local function jitter(a: number): number
@@ -202,24 +245,39 @@ end
 ]]
 local function skeleton(parent, at: Vector3, facing: number, pose: string)
 	local model = group(parent, "Skeleton")
-	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(facing), 0)
 
-	-- Poses. Face down is the commonest way to find one; curled means they had
-	-- time to know it was coming.
-	local tilt = 0
+	--[[
+		A body is built LYING DOWN already: the spine runs along local Z, head at
+		+3.6, feet at -9.6, everything within a stud or so of local y = 0.
+
+		The first version then pitched it ninety degrees on top of that, which
+		stood every corpse bolt upright — and sank half of each one into the
+		ground for good measure. So there is no pitch here at all. A pose is a
+		ROLL about the body's own length, plus a lift that clears the ground for
+		whatever that roll makes the widest part.
+	]]
 	local roll = 0
+	local pitch = 0
+	local lift = 1.4
+
 	if pose == "facedown" then
-		tilt = math.rad(90)
+		roll = 0
+	elseif pose == "faceup" then
+		roll = math.rad(180)
 	elseif pose == "side" then
-		tilt = math.rad(90)
-		roll = math.rad(80)
+		roll = math.rad(90)
+		lift = 2.1 -- on its side, the shoulders are what sit lowest
 	elseif pose == "curled" then
-		tilt = math.rad(90)
-		roll = math.rad(35)
+		roll = math.rad(58)
+		lift = 1.9
 	elseif pose == "propped" then
-		tilt = math.rad(62)
+		pitch = math.rad(-24) -- head raised, as if it went down against a wall
+		lift = 2.4
 	end
-	base = base * CFrame.Angles(tilt, 0, roll)
+
+	local base = CFrame.new(at + Vector3.new(0, lift, 0))
+		* CFrame.Angles(0, math.rad(facing), 0)
+		* CFrame.Angles(pitch, 0, roll)
 
 	local colour = if chance(0.5) then C.bone else C.boneOld
 
@@ -337,7 +395,11 @@ end
 -- still fleshed, and always face down — nothing here fell backwards.
 local function corpse(parent, at: Vector3, facing: number)
 	local model = group(parent, "Corpse")
-	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(facing), 0) * CFrame.Angles(math.rad(90), 0, math.rad(jitter(25)))
+	-- Built lying down, like the skeletons, and for the same reason: the torso
+	-- is already long in Z and flat in Y. Only a small roll, never a pitch.
+	local base = CFrame.new(at + Vector3.new(0, 1.1, 0))
+		* CFrame.Angles(0, math.rad(facing), 0)
+		* CFrame.Angles(0, 0, math.rad(jitter(22)))
 
 	block(model, "Torso", Vector3.new(3.6, 1.8, 5), base * CFrame.new(0, 0.9, 0), C.flesh, M.sand)
 	block(model, "Hips", Vector3.new(3.2, 1.6, 2), base * CFrame.new(0, 0.9, -3), C.flesh, M.sand)
@@ -356,7 +418,7 @@ end
 --==========================================================================
 -- THE RAIL LINE — how you got here
 --==========================================================================
-local rails = group(approach, "RailLine")
+local rails = group(bucket.Buildings, "RailLine")
 do
 	local fromZ, toZ = 620, PLATFORM_Z - 20
 
@@ -388,7 +450,7 @@ end
 --==========================================================================
 -- THE PLATFORM — the last working thing
 --==========================================================================
-local platform = group(approach, "Platform")
+local platform = group(bucket.Buildings, "Platform")
 do
 	mass(platform, "Deck", Vector3.new(72, 4, 86), CFrame.new(0, 2, PLATFORM_Z + 16), C.stonePale, M.stone)
 	block(platform, "Coping", Vector3.new(72, 1, 3), CFrame.new(0, 4.4, PLATFORM_Z - 26), C.stoneDark, M.stone)
@@ -411,7 +473,7 @@ do
 		-- Luggage nobody came back for.
 		for _ = 1, 7 do
 			local s = rng:NextNumber(3, 5)
-			block(platform, "Crate", Vector3.new(s, s, s), CFrame.new(rng:NextNumber(-28, -16), 4 + s / 2, rng:NextNumber(PLATFORM_Z - 14, PLATFORM_Z + 40)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), C.wood, M.wood)
+			block(bucket.Decorations, "Crate", Vector3.new(s, s, s), CFrame.new(rng:NextNumber(-28, -16), 4 + s / 2, rng:NextNumber(PLATFORM_Z - 14, PLATFORM_Z + 40)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), C.wood, M.wood)
 		end
 	end
 end
@@ -419,7 +481,7 @@ end
 --==========================================================================
 -- THE ROAD — the line the eye follows to the gate
 --==========================================================================
-local road = group(approach, "Road")
+local road = group(bucket.Buildings, "Road")
 do
 	local fromZ, toZ = PLATFORM_Z - 28, MOAT_Z + MOAT_W / 2
 
@@ -452,7 +514,7 @@ end
 --==========================================================================
 -- THE MOAT
 --==========================================================================
-local moat = group(approach, "Moat")
+local moat = group(bucket.Buildings, "Moat")
 if CARVE_MOAT then
 	--[[
 		Cut, then flood, then face the edges in stone. The revetment is what
@@ -499,7 +561,7 @@ end
 --==========================================================================
 -- THE CAUSEWAY — the only way across
 --==========================================================================
-local causeway = group(approach, "Causeway")
+local causeway = group(bucket.Buildings, "Causeway")
 do
 	local fromZ, toZ = MOAT_Z + MOAT_W / 2 + 4, MOAT_Z - MOAT_W / 2 - 4
 	local width = 34
@@ -539,7 +601,7 @@ end
 --==========================================================================
 -- THE FALLEN GATE — the set piece
 --==========================================================================
-local gate = group(approach, "FallenGate")
+local gate = group(bucket.Buildings, "FallenGate")
 do
 	local GW = 34 -- the opening, matching the gatehouse
 
@@ -640,47 +702,66 @@ end
 -- THE LAST STAND — where they died holding it
 --==========================================================================
 if DETAIL >= 2 then
-	local dead = group(approach, "TheDead")
+	-- A FOLDER, so clicking a bone selects that skeleton and not all of them.
+	local dead = bucket.Decorations
 
 	-- Thickest in the gateway itself, thinning as you go back up the road: they
 	-- were pushed backwards, and this is the shape that tells you so.
-	local poses = { "facedown", "side", "curled", "propped", "facedown", "facedown" }
-	for i = 1, 22 do
-		local t = (i - 1) / 21
+	local poses = { "facedown", "side", "curled", "propped", "facedown", "faceup" }
+
+	local placedDead = 0
+	for i = 1, 34 do
+		local t = (i - 1) / 33
 		local z = GATE_Z + 8 + t * t * 200
 		local spread = 26 + t * 60
-		skeleton(dead, Vector3.new(jitter(spread), 0.9, z + jitter(14)), rng:NextNumber(0, 360), poses[rng:NextInteger(1, #poses)])
+		local x, zz = jitter(spread), z + jitter(14)
+		if not overMoat(zz, x) then
+			skeleton(dead, Vector3.new(x, 0, zz), rng:NextNumber(0, 360), poses[rng:NextInteger(1, #poses)])
+			placedDead += 1
+		end
 	end
 
-	for i = 1, 9 do
-		local t = (i - 1) / 8
-		corpse(dead, Vector3.new(jitter(30 + t * 40), 1, GATE_Z + 14 + t * 150 + jitter(12)), rng:NextNumber(0, 360))
+	for i = 1, 12 do
+		local t = (i - 1) / 11
+		local x, zz = jitter(30 + t * 40), GATE_Z + 14 + t * 150 + jitter(12)
+		if not overMoat(zz, x) then
+			corpse(dead, Vector3.new(x, 0, zz), rng:NextNumber(0, 360))
+		end
 	end
 
-	for _ = 1, 16 do
-		bloodPool(dead, Vector3.new(jitter(70), 0, GATE_Z + rng:NextNumber(0, 190)), rng:NextNumber(5, 14))
+	for _ = 1, 20 do
+		local x, zz = jitter(70), GATE_Z + rng:NextNumber(0, 190)
+		if not overMoat(zz, x) then
+			bloodPool(dead, Vector3.new(x, 0, zz), rng:NextNumber(5, 14))
+		end
 	end
 
 	-- A last knot of them at the gateway, shoulder to shoulder. Somebody held
 	-- this line until they could not.
 	for i = -3, 3 do
-		skeleton(dead, Vector3.new(i * 6 + jitter(2), 0.9, GATE_Z + 6 + jitter(4)), 180 + jitter(24), if chance(0.5) then "facedown" else "side")
+		skeleton(dead, Vector3.new(i * 6 + jitter(2), 0, GATE_Z + 6 + jitter(4)), 180 + jitter(24), if chance(0.5) then "facedown" else "side")
 	end
 	bloodPool(dead, Vector3.new(0, 0, GATE_Z + 6), 22)
 
 	if DETAIL >= 3 then
 		-- Their weapons, dropped where they fell.
-		for _ = 1, 14 do
-			local at = Vector3.new(jitter(60), 1, GATE_Z + rng:NextNumber(0, 170))
-			if chance(0.5) then
-				bar(dead, "Spear", 0.22, at, at + Vector3.new(jitter(9), 0.3, jitter(9)), C.woodDark, M.log)
-			else
-				block(dead, "Shield", Vector3.new(5.4, 0.5, 7.4), CFrame.new(at) * CFrame.Angles(jitter(0.4), rng:NextNumber(0, 3), jitter(0.3)), if chance(0.4) then C.cloth else C.woodDark, M.wood)
+		for _ = 1, 18 do
+			local x, z = jitter(60), GATE_Z + rng:NextNumber(0, 170)
+			if not overMoat(z, x) then
+				local at = Vector3.new(x, 0.6, z)
+				if chance(0.5) then
+					bar(dead, "DroppedSpear", 0.22, at, at + Vector3.new(jitter(9), 0.2, jitter(9)), C.woodDark, M.log)
+				else
+					block(dead, "Shield", Vector3.new(5.4, 0.5, 7.4), CFrame.new(at) * CFrame.Angles(jitter(0.35), rng:NextNumber(0, 3), jitter(0.25)), if chance(0.4) then C.cloth else C.woodDark, M.wood)
+				end
 			end
 		end
-		for _ = 1, 20 do
-			local at = Vector3.new(jitter(80), 0, GATE_Z + rng:NextNumber(-4, 200))
-			bar(dead, "Arrow", 0.12, at, at + Vector3.new(jitter(1.6), 3.4, jitter(1.6)), C.woodSplint, M.log)
+		for _ = 1, 26 do
+			local x, z = jitter(80), GATE_Z + rng:NextNumber(-4, 200)
+			if not overMoat(z, x) then
+				local at = Vector3.new(x, 0, z)
+				bar(dead, "Arrow", 0.12, at, at + Vector3.new(jitter(1.6), 3.4, jitter(1.6)), C.woodSplint, M.log)
+			end
 		end
 	end
 end
