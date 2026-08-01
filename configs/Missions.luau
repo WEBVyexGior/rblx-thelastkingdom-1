@@ -32,16 +32,17 @@ local Missions = {
 				description = "[PLACEHOLDER] Explore ahead — reach the survivor's marker.",
 				completionText = "[PLACEHOLDER LORE] A survivor's marker. Something terrible passed through here.",
 				-- Named, not coordinates: drag the marker in Studio and the
-				-- objective follows it. See Shared.World.Markers.
-				position = "Area1_Outskirts.Objectives.SurvivorMarker",
-				radius = 8,
+				-- objective follows it. See Shared.World.Markers, and
+				-- tools/BuildBattleground for where these markers come from.
+				position = "Battleground.Chamber1.Objectives.Centre",
+				radius = 14,
 			},
 			{
 				id = "reach_site",
 				type = "Reach",
 				description = "[PLACEHOLDER] Press on to the ruined site.",
-				position = "Area1_Outskirts.Objectives.RuinedSite",
-				radius = 10,
+				position = "Battleground.Chamber2.Objectives.Centre",
+				radius = 14,
 			},
 			{
 				id = "clear_undead",

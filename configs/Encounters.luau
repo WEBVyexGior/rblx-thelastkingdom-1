@@ -22,9 +22,9 @@ local Encounters = {
 		-- where the fight should come from, and this needs no edit. See
 		-- Shared.World.Markers, and tools/ScaffoldAreas to create them.
 		spawnPoints = {
-			north = "Area1_Outskirts.Spawns.North",
-			east = "Area1_Outskirts.Spawns.East",
-			west = "Area1_Outskirts.Spawns.West",
+			north = "Battleground.Chamber1.Spawns.North",
+			east = "Battleground.Chamber1.Spawns.East",
+			west = "Battleground.Chamber1.Spawns.West",
 		},
 		waves = {
 			{
