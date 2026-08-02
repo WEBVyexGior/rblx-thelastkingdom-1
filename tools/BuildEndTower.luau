@@ -328,13 +328,34 @@ do
 	]]
 	local RUBBLE_LINE = 30 -- above the batter, the rubble and the fallen stones
 
+	--[[
+		How far a part reaches in WORLD x and z.
+
+		`Size` is in the part's OWN axes, not the world's. Reading `Size.X` as a
+		world-X extent is wrong for anything rotated, and this tower is built
+		almost entirely out of rotated pieces: every `bar` is a cylinder whose
+		Size.X is its LENGTH along its own axis, and every `drum` is a cylinder
+		rolled 90°. A roof rafter sixty studs long, leaning in to the apex, was
+		being counted as thirty studs of world X on its own — which is why
+		SideTowerW measured a shaft radius of 67 when it is about 22.
+
+		Projecting the oriented box onto each world axis is the fix: sum the
+		absolute contribution of each of the part's three axes.
+	]]
+	local function worldSpan(part: BasePart): (number, number, number, number)
+		local cf, s = part.CFrame, part.Size
+		local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
+		local hx = math.abs(right.X) * s.X / 2 + math.abs(up.X) * s.Y / 2 + math.abs(look.X) * s.Z / 2
+		local hz = math.abs(right.Z) * s.X / 2 + math.abs(up.Z) * s.Y / 2 + math.abs(look.Z) * s.Z / 2
+		local p = part.Position
+		return p.X - hx, p.X + hx, p.Z - hz, p.Z + hz
+	end
+
 	local function shaftFootprint(node: Model): (number?, number?, number?)
 		local minX, maxX, minZ, maxZ
 		for _, part in ipairs(node:GetDescendants()) do
 			if part:IsA("BasePart") and part.Position.Y >= RUBBLE_LINE then
-				local hx, hz = part.Size.X / 2, part.Size.Z / 2
-				local lo, hi = part.Position.X - hx, part.Position.X + hx
-				local zlo, zhi = part.Position.Z - hz, part.Position.Z + hz
+				local lo, hi, zlo, zhi = worldSpan(part)
 				minX = if minX then math.min(minX, lo) else lo
 				maxX = if maxX then math.max(maxX, hi) else hi
 				minZ = if minZ then math.min(minZ, zlo) else zlo

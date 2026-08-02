@@ -120,13 +120,32 @@ local obstacles: { { name: string, x: number, z: number, reach: number } } = {}
 ]]
 local RUBBLE_LINE = 30
 
+--[[
+	How far a part reaches in WORLD x and z.
+
+	`Size` is in the part's OWN axes, not the world's — so reading `Size.X` as a
+	world-X extent is wrong for anything rotated, and the castle is built almost
+	entirely out of rotated pieces. A cylinder's Size.X is its LENGTH along its
+	own axis; a roof rafter leaning in to a tower's apex was counted as half its
+	length in world X, which made SideTowerW measure a shaft radius of 67 when it
+	is about 22.
+
+	Projecting the oriented box onto each world axis is the fix.
+]]
+local function worldSpan(part: BasePart): (number, number, number, number)
+	local cf, s = part.CFrame, part.Size
+	local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
+	local hx = math.abs(right.X) * s.X / 2 + math.abs(up.X) * s.Y / 2 + math.abs(look.X) * s.Z / 2
+	local hz = math.abs(right.Z) * s.X / 2 + math.abs(up.Z) * s.Y / 2 + math.abs(look.Z) * s.Z / 2
+	local p = part.Position
+	return p.X - hx, p.X + hx, p.Z - hz, p.Z + hz
+end
+
 local function extentsAbove(node: Instance, minY: number)
 	local minX, maxX, minZ, maxZ
 	for _, part in ipairs(node:GetDescendants()) do
 		if part:IsA("BasePart") and part.Position.Y >= minY then
-			local hx, hz = part.Size.X / 2, part.Size.Z / 2
-			local lo, hi = part.Position.X - hx, part.Position.X + hx
-			local zlo, zhi = part.Position.Z - hz, part.Position.Z + hz
+			local lo, hi, zlo, zhi = worldSpan(part)
 			minX = if minX then math.min(minX, lo) else lo
 			maxX = if maxX then math.max(maxX, hi) else hi
 			minZ = if minZ then math.min(minZ, zlo) else zlo
