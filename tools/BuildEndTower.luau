@@ -2,8 +2,8 @@
 	BuildEndTower — run in the Studio Command Bar of the FORGOTTEN LANDS place,
 	in EDIT MODE. Select the whole file (Ctrl+A), copy, paste, Enter.
 
-	Builds the LIBRARY TOWER: the last thing in the map, standing against the
-	west wall of chamber 9, and the place the story actually ends.
+	Builds the LIBRARY TOWER: the last thing in the map, standing free on the
+	west side of chamber 9, and the place the story actually ends.
 
 	The shape of it:
 
@@ -20,9 +20,9 @@
 	TWO RULES THIS BUILD IS BOUND BY
 	--------------------------------------------------------------------------
 
-	NO ROUTE ONTO THE WALLS. The curtain wall is 62 high and this tower stands
-	against it. A climbable floor above 62, or any opening on the wall side,
-	hands the player the exact escape route we spent a pass removing. So:
+	NO ROUTE ONTO THE WALLS. The curtain wall is 62 high and this tower is
+	taller than that. A climbable floor above 62, or any opening on the wall
+	side, hands the player the exact escape route we spent a pass removing. So:
 
 	  - the stair STOPS at the library, at 48
 	  - the library ceiling at 64 is solid, and nothing goes above it
