@@ -41,22 +41,31 @@
 --==========================================================================
 local GROUND = 2
 local WALL_H = 62 -- curtain wall head; nothing climbable may reach it
-local WALL_X = -150 -- west wall line
-local WALL_T = 14
+local LAST = 9 -- the chamber this stands in
 
-local Z_START = 20
-local CHAMBER_D = 200
-local LAST = 9
-
--- Chamber 9 runs -1598 to -1758. The tower sits mid-way along its west side.
-local zNear = Z_START - (LAST - 1) * CHAMBER_D
-local TOWER_Z = zNear - CHAMBER_D / 2 + 22
 --[[
-	Far enough east that the shaft clears the wall's inner face (-143) but still
-	reads as built INTO it — a tower that merely touches a wall looks dropped
-	there. A little overlap is what a real mural tower does.
+	WHERE IT STANDS. Free of everything, and every number here is forced.
+
+	Chamber 9 runs z -1598 to -1758. Three things are already in it:
+
+	  SideTowerW   (-150, -1680), radius 22 — a wall tower, and the first
+	               version of this build was embedded 14 studs into it
+	  the road     in from the chamber-8 passage at (-115, -1592), diagonally
+	               across to (0, -1690), then south to (0, -1750)
+	  the walls    west face at x -143
+
+	That diagonal takes the whole north-west quarter, so the only clear ground
+	on the west side is SOUTH of it and PAST the wall tower. Here:
+
+	  to the road         ~75    (needs 40)
+	  to SideTowerW       ~81    (needs 49)
+	  to the west wall     36    free-standing, touching nothing
+
+	Standing clear rather than built into the curtain also drops the reason the
+	first version fought with the wall tower at all.
 ]]
-local TOWER_X = WALL_X + WALL_T / 2 + 20
+local TOWER_X = -80
+local TOWER_Z = -1720
 
 local R_SHAFT = 27 -- outer radius of the shaft
 local R_BASE = 34 -- outer radius at the foot of the batter
@@ -71,6 +80,25 @@ local Y_PARAPET = GROUND + 74
 local Y_TOP = GROUND + 86
 
 local SEGMENTS = 22 -- blocks per course; the shaft is a polygon, densely enough
+
+--[[
+	THE STAIR WELL. Module scope on purpose: the interior builds the stair in it
+	and the library has to keep its furniture OUT of it, and a second copy of
+	these numbers would eventually put a bookcase in mid-air over a stairwell.
+]]
+local WELL_A = 2.5 -- across the room from the door, so you cross the floor
+local WELL_DIST = 11 -- how far the well's axis sits from the tower's
+local WELL_R = 9 -- inside face of the well
+local HOLE_R = WELL_R + 2.5 -- what the floors cut: always wider than the well
+local NEWEL_R = 2
+
+local WELL_X = TOWER_X + math.cos(WELL_A) * WELL_DIST
+local WELL_Z = TOWER_Z + math.sin(WELL_A) * WELL_DIST
+
+-- Distance from the well's axis. Every clearance test in this file wants it.
+local function fromWell(px: number, pz: number): number
+	return Vector3.new(px - WELL_X, 0, pz - WELL_Z).Magnitude
+end
 
 local rng = Random.new(20260802)
 
@@ -278,6 +306,33 @@ do
 				if flat.Magnitude < FOOTPRINT then
 					warn(("[EndTower] ABORTED: the road runs through the tower footprint at %d, %d."):format(part.Position.X, part.Position.Z))
 					warn("[EndTower] Move TOWER_X / TOWER_Z, or re-run BuildChambers after this tool so the road is drawn around it.")
+					return
+				end
+			end
+		end
+	end
+
+	--[[
+		And the CASTLE. The first version of this tower was placed by arithmetic
+		alone and landed 14 studs inside SideTowerW, because nothing ever checked.
+
+		This measures instead: every Model in the chamber's Structure, its real
+		bounding box, against the tower's footprint. Curtain walls are excluded —
+		they are long flat slabs whose bounding boxes span the whole chamber, so
+		testing them would reject every position there is. Round towers, which
+		are the things actually in the way, are exactly what it catches.
+	]]
+	local chamber = battleground:FindFirstChild(("Chamber%d"):format(LAST))
+	local structure = chamber and chamber:FindFirstChild("Structure")
+	if structure then
+		for _, node in ipairs(structure:GetChildren()) do
+			if node:IsA("Model") and node.Name:find("Tower") then
+				local cf, size = node:GetBoundingBox()
+				local reach = math.max(size.X, size.Z) / 2
+				local gap = Vector3.new(cf.Position.X - TOWER_X, 0, cf.Position.Z - TOWER_Z).Magnitude
+				if gap < reach + R_BASE then
+					warn(("[EndTower] ABORTED: %s is at %d, %d and reaches %d — the tower needs %d and only has %d."):format(node.Name, cf.Position.X, cf.Position.Z, reach, reach + R_BASE, gap))
+					warn("[EndTower] Move TOWER_X / TOWER_Z. Run tools/SurveyEndZone.luau to see what is where.")
 					return
 				end
 			end
@@ -614,86 +669,156 @@ do
 	local m = model(root, "Interior")
 
 	--[[
-		The newel stair. It winds up the inside face and STOPS AT THE LIBRARY:
-		there is deliberately no flight above 48, because the wall head is at 62
-		and a stair that reaches it is an escape route out of the map.
+		THE STAIR.
+
+		The first version wound around the CENTRE of the tower with treads
+		running from the newel all the way out to the wall — which means the
+		stair occupied the entire floor plan at every height, and the floors were
+		then built straight through it. Climbing, you walked into the joists
+		spanning the diameter. That is the wood that stopped you.
+
+		A vice belongs in its own WELL: a tight spiral in a shaft off to one
+		side, so the rest of each floor is a room. Everything below is built off
+		the well, and the floors cut a circular hole around it that is wider than
+		the well itself, so nothing can overhang the climb.
+
+		It still STOPS AT THE LIBRARY. The wall head is 62; a flight above 48 is
+		a way out of the map.
 	]]
-	local stairR = R_IN - 4.5
 	local topY = Y_FLOOR[3]
 	local riseTotal = topY - GROUND
-	local RISE = 1.5
+	local RISE = 1.45 -- a Roblox character steps 2; 1.45 is comfortable
 	local steps = math.floor(riseTotal / RISE)
-	local turnPerStep = (2 * math.pi) / 24 -- 24 steps to the turn
+	local PER_TURN = 18
+	local turnPerStep = (2 * math.pi) / PER_TURN
 
-	-- The newel: the post the whole stair winds around.
-	drum(m, "Newel", 3, riseTotal + 4, Vector3.new(TOWER_X, GROUND + riseTotal / 2, TOWER_Z), C.stonePale, M.stone)
+	-- The newel the whole spiral winds around.
+	drum(m, "Newel", NEWEL_R, riseTotal + 3, Vector3.new(WELL_X, GROUND + riseTotal / 2, WELL_Z), C.stonePale, M.stone)
 
-	local stairAngles = {}
 	for i = 0, steps do
-		local a = 0.9 + i * turnPerStep
+		local a = 0.6 + i * turnPerStep
 		local y = GROUND + i * RISE
-		stairAngles[i] = a
-		-- Each tread is a wedge from the newel out to the wall.
-		mass(m, "Tread", Vector3.new(stairR + 3, 1.4, 6.2), CFrame.new(at(a, stairR / 2 + 1.5, y)) * facing(a) * CFrame.Angles(0, math.rad(90), 0), C.stonePale, M.stone)
-		-- A worn hollow in the middle of the tread, where a thousand feet went.
-		if chance(0.5) then
-			block(m, "Worn", Vector3.new(4, 0.3, 4), CFrame.new(at(a, stairR * 0.6, y + 0.8)), C.stoneDark, M.stone)
+		local mid = (NEWEL_R + WELL_R) / 2
+		local treadLen = WELL_R - NEWEL_R + 1.5
+		local treadDepth = (2 * math.pi * mid) / PER_TURN + 1.2
+
+		--[[
+			A tread runs radially out from the newel. `facing` turns a block so
+			its width lies along the tangent; a further 90° about Y swaps that,
+			putting the length radial and the depth along the tread, which is the
+			way round a stair actually wants.
+		]]
+		mass(
+			m,
+			"Tread",
+			Vector3.new(treadLen, 1.3, treadDepth),
+			CFrame.new(WELL_X + math.cos(a) * mid, y, WELL_Z + math.sin(a) * mid) * CFrame.Angles(0, -(a + math.pi / 2), 0) * CFrame.Angles(0, math.rad(90), 0),
+			C.stonePale,
+			M.stone
+		)
+		-- The hollow a thousand feet wore into the middle of it.
+		if chance(0.45) then
+			block(m, "Worn", Vector3.new(3, 0.25, 3), CFrame.new(WELL_X + math.cos(a) * mid, y + 0.75, WELL_Z + math.sin(a) * mid), C.stoneDark, M.stone)
+		end
+		-- A rope handrail on the outer side, on iron rings.
+		if i % 2 == 0 and i < steps then
+			local ringAt = Vector3.new(WELL_X + math.cos(a) * (WELL_R - 0.6), y + 5, WELL_Z + math.sin(a) * (WELL_R - 0.6))
+			local nextA = a + turnPerStep * 2
+			local nextAt = Vector3.new(WELL_X + math.cos(nextA) * (WELL_R - 0.6), y + 5 + RISE * 2, WELL_Z + math.sin(nextA) * (WELL_R - 0.6))
+			bar(m, "Rope", 0.3, ringAt, nextAt, C.wood, M.fabric)
 		end
 	end
 
-	-- Floors. Timber on stone corbels, with the stair opening left out.
+	--[[
+		Floors. Timber on stone corbels, with a clean circular hole around the
+		well — joists included. The old version cut only the boards, and left the
+		joists running the full diameter straight through the stair.
+	]]
 	for index = 2, 3 do
 		local y = Y_FLOOR[index]
 		local floor = model(m, ("Floor%d"):format(index))
 
-		-- Corbels carrying the joists.
+		-- Corbels carrying the joists, all the way round.
 		for i = 0, SEGMENTS - 1 do
 			local a = (i / SEGMENTS) * math.pi * 2
 			mass(floor, "Corbel", Vector3.new(4, 2.4, 4), CFrame.new(at(a, R_IN + 1, y - 1.6)) * facing(a), C.stonePale, M.stone)
 		end
 
-		-- Where the stair arrives, and therefore where the hole has to be.
-		local arriveA = stairAngles[math.floor((y - GROUND) / RISE)] or 0
-		local function overHole(px: number, pz: number): boolean
-			local ang = math.atan2(pz - TOWER_Z, px - TOWER_X)
-			local dist = Vector3.new(px - TOWER_X, 0, pz - TOWER_Z).Magnitude
-			return within(ang, arriveA, 0.95) and dist > 5
-		end
-
-		-- Joists one way, boards the other.
+		--[[
+			Joists, in SEGMENTS rather than as one bar per line. A joist that
+			would cross the well is cut either side of it — which is what a
+			carpenter does too: the ones that meet a stair well are trimmed into
+			a header around it.
+		]]
 		for j = -4, 4 do
 			local z = j * 4.6
 			local halfSpan = math.sqrt(math.max(0, R_IN * R_IN - z * z))
 			if halfSpan > 3 then
-				bar(floor, "Joist", 1, Vector3.new(TOWER_X - halfSpan, y - 0.8, TOWER_Z + z), Vector3.new(TOWER_X + halfSpan, y - 0.8, TOWER_Z + z), C.woodDark, M.log)
+				local pieces = 14
+				local run = { }
+				for p = 0, pieces - 1 do
+					local x0 = -halfSpan + (2 * halfSpan) * (p / pieces)
+					local x1 = -halfSpan + (2 * halfSpan) * ((p + 1) / pieces)
+					local clear = fromWell(TOWER_X + (x0 + x1) / 2, TOWER_Z + z) > HOLE_R
+					if clear then
+						if not run[1] then
+							run[1] = x0
+						end
+						run[2] = x1
+					elseif run[1] then
+						bar(floor, "Joist", 1, Vector3.new(TOWER_X + run[1], y - 0.8, TOWER_Z + z), Vector3.new(TOWER_X + run[2], y - 0.8, TOWER_Z + z), C.woodDark, M.log)
+						run = {}
+					end
+				end
+				if run[1] then
+					bar(floor, "Joist", 1, Vector3.new(TOWER_X + run[1], y - 0.8, TOWER_Z + z), Vector3.new(TOWER_X + run[2], y - 0.8, TOWER_Z + z), C.woodDark, M.log)
+				end
 			end
 		end
+
+		-- Boards across them, in short runs so a missing one is a missing board
+		-- and not a missing floor.
 		for i = -6, 6 do
 			local x = i * 3.4
 			local halfSpan = math.sqrt(math.max(0, R_IN * R_IN - x * x))
 			if halfSpan > 3 then
-				-- Boards in short runs, so a missing one is a missing board and
-				-- not a missing floor.
-				local runs = 4
+				local runs = 6
 				for r = 0, runs - 1 do
 					local z0 = -halfSpan + (2 * halfSpan) * (r / runs)
 					local z1 = -halfSpan + (2 * halfSpan) * ((r + 1) / runs)
 					local zc = (z0 + z1) / 2
-					local gone = overHole(TOWER_X + x, TOWER_Z + zc) or chance(0.06)
-					if not gone then
+					local clear = fromWell(TOWER_X + x, TOWER_Z + zc) > HOLE_R
+					if clear and not chance(0.05) then
 						block(floor, "Board", Vector3.new(3.3, 0.7, z1 - z0), CFrame.new(TOWER_X + x, y, TOWER_Z + zc), C.wood, M.wood)
 					end
 				end
 			end
 		end
 
-		-- A rail around the stair opening, because the hole is a long drop.
-		for k = -1, 1, 2 do
-			local a = arriveA + k * 0.95
-			bar(floor, "Rail", 0.5, at(a, 6, y + 1), at(a, R_IN - 1, y + 1), C.woodDark, M.log)
-			bar(floor, "Rail", 0.5, at(a, 6, y + 4), at(a, R_IN - 1, y + 4), C.woodDark, M.log)
-			for t = 0.2, 1, 0.4 do
-				bar(floor, "Baluster", 0.45, at(a, 6 + (R_IN - 7) * t, y), at(a, 6 + (R_IN - 7) * t, y + 4.4), C.woodDark, M.log)
+		--[[
+			A rail round the hole, because it is a long drop — but only where the
+			stair is NOT arriving, or the rail becomes the next thing to walk
+			into. The opening arc is left free.
+		]]
+		local arrive = 0.6 + math.floor((y - GROUND) / RISE) * turnPerStep
+		local posts = 16
+		for p = 0, posts - 1 do
+			local a = (p / posts) * math.pi * 2
+			if not within(a, arrive, 1.5) then
+				local px, pz = WELL_X + math.cos(a) * (HOLE_R + 0.8), WELL_Z + math.sin(a) * (HOLE_R + 0.8)
+				bar(floor, "Baluster", 0.45, Vector3.new(px, y, pz), Vector3.new(px, y + 4.4, pz), C.woodDark, M.log)
+				local nextA = ((p + 1) / posts) * math.pi * 2
+				if not within(nextA, arrive, 1.5) then
+					bar(
+						floor,
+						"Rail",
+						0.5,
+						Vector3.new(px, y + 4.2, pz),
+						Vector3.new(WELL_X + math.cos(nextA) * (HOLE_R + 0.8), y + 4.2, WELL_Z + math.sin(nextA) * (HOLE_R + 0.8)),
+						C.woodDark,
+						M.log
+					)
+				end
 			end
 		end
 	end
@@ -771,7 +896,11 @@ do
 				return true
 			end
 		end
-		return false
+		-- And the bay the stair well eats. The well's axis is 11 out from the
+		-- centre with a 9 radius, so at WELL_A it swallows everything from
+		-- radius 2 to 20 — which is exactly where the shelving stands.
+		local px, pz = at(a, R_IN - 3, 0).X, at(a, R_IN - 3, 0).Z
+		return fromWell(px, pz) < HOLE_R + 9
 	end
 
 	local shelfCount = 11
@@ -803,24 +932,44 @@ do
 		end
 	end
 
-	-- Books that came off the shelves and stayed where they fell.
+	--[[
+		Books and sheets that came off the shelves and stayed where they fell.
+
+		Rejected if they land over the stair well — otherwise they hang in the
+		air down the middle of the shaft, which is the sort of thing that is
+		invisible in code and unmissable the moment you climb past it.
+	]]
+	local function onFloor(minR: number, maxR: number): (number?, number?)
+		for _ = 1, 20 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			local dist = rng:NextNumber(minR, maxR)
+			local p = at(a, dist, 0)
+			if fromWell(p.X, p.Z) > HOLE_R + 1 then
+				return a, dist
+			end
+		end
+		return nil, nil
+	end
+
 	for _ = 1, 40 do
-		local a = rng:NextNumber(0, math.pi * 2)
-		local dist = rng:NextNumber(5, R_IN - 4)
-		block(
-			m,
-			"FallenBook",
-			Vector3.new(rng:NextNumber(3, 4.4), rng:NextNumber(0.7, 1.3), rng:NextNumber(2.6, 3.6)),
-			CFrame.new(at(a, dist, y + 0.7)) * CFrame.Angles(jitter(0.1), rng:NextNumber(0, 6), jitter(0.1)),
-			pick(COVERS),
-			M.fabric
-		)
+		local a, dist = onFloor(5, R_IN - 4)
+		if a then
+			block(
+				m,
+				"FallenBook",
+				Vector3.new(rng:NextNumber(3, 4.4), rng:NextNumber(0.7, 1.3), rng:NextNumber(2.6, 3.6)),
+				CFrame.new(at(a, dist, y + 0.7)) * CFrame.Angles(jitter(0.1), rng:NextNumber(0, 6), jitter(0.1)),
+				pick(COVERS),
+				M.fabric
+			)
+		end
 	end
 	-- Loose sheets, which is what a scriptorium leaves more of than books.
 	for _ = 1, 26 do
-		local a = rng:NextNumber(0, math.pi * 2)
-		local dist = rng:NextNumber(4, R_IN - 3)
-		block(m, "Sheet", Vector3.new(rng:NextNumber(2.4, 3.6), 0.12, rng:NextNumber(2, 3)), CFrame.new(at(a, dist, y + 0.4)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), C.paper, M.paper)
+		local a, dist = onFloor(4, R_IN - 3)
+		if a then
+			block(m, "Sheet", Vector3.new(rng:NextNumber(2.4, 3.6), 0.12, rng:NextNumber(2, 3)), CFrame.new(at(a, dist, y + 0.4)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), C.paper, M.paper)
+		end
 	end
 
 	--==================================================================
@@ -994,16 +1143,20 @@ do
 	prompt.CanTouch = false
 	prompt.Locked = true
 
-	-- A reading desk in the middle, and a chest nobody emptied.
+	-- A reading desk, and a chest nobody emptied. Both kept well off the stair
+	-- well: the first version put the lectern 4 studs from its axis, hanging
+	-- over the shaft.
 	local lectern = model(m, "Lectern")
-	local lc = CFrame.new(TOWER_X - 5, y, TOWER_Z + 6)
+	local lc = CFrame.new(at(-1.2, 11, y))
 	block(lectern, "Post", Vector3.new(2, 10, 2), lc * CFrame.new(0, 5, 0), C.woodDark, M.log)
 	block(lectern, "Foot", Vector3.new(7, 1.2, 7), lc * CFrame.new(0, 0.6, 0), C.woodDark, M.wood)
 	block(lectern, "Slope", Vector3.new(9, 0.8, 7), lc * CFrame.new(0, 10.4, 0) * CFrame.Angles(math.rad(-22), 0, 0), C.wood, M.wood)
 	block(lectern, "OpenBook", Vector3.new(7.4, 0.9, 5.4), lc * CFrame.new(0, 11.1, 0.3) * CFrame.Angles(math.rad(-22), 0, 0), C.paper, M.paper)
 
 	local chest = model(m, "Chest")
-	local cc = CFrame.new(at(2.5, R_IN - 5, y))
+	-- NOT at 2.5: that is the well's own bearing, and the chest stood in the
+	-- middle of the stair shaft.
+	local cc = CFrame.new(at(-2.4, R_IN - 6, y))
 	block(chest, "Body", Vector3.new(9, 5, 5.4), cc * CFrame.new(0, 2.5, 0), C.woodDark, M.wood)
 	block(chest, "Lid", Vector3.new(9.4, 1.2, 5.8), cc * CFrame.new(0, 5.6, -2.4) * CFrame.Angles(math.rad(-64), 0, 0), C.woodDark, M.wood)
 	for _, bx in { -3, 3 } do
@@ -1075,6 +1228,44 @@ do
 	end
 	bar(m, "Staff", 0.5, apex, apex + Vector3.new(0, 12, 0), C.woodDark, M.log)
 	block(m, "Banner", Vector3.new(0.3, 9, 6), CFrame.new(apex + Vector3.new(0.4, 6, 3)), Color3.fromRGB(58, 24, 28), M.fabric)
+end
+
+--==========================================================================
+-- SELF-CHECK: is the climb actually clear?
+--==========================================================================
+--[[
+	The first version of this tower could not be climbed: the floors were built
+	straight through the stair, and the joists spanning the diameter stopped you
+	two flights up. It looked right in the code and was wrong in the viewport,
+	which is the worst combination there is.
+
+	So the tool now measures its own result. Anything that is not part of the
+	stair, sitting over the well between the ground and the library, is reported
+	by name and position — no arithmetic in a comment, an actual sweep of what
+	was built.
+]]
+do
+	local STAIR_PARTS = { Tread = true, Newel = true, Worn = true, Rope = true }
+	local offenders = {}
+
+	for _, part in ipairs(root:GetDescendants()) do
+		if part:IsA("BasePart") and not STAIR_PARTS[part.Name] then
+			local p = part.Position
+			if p.Y > GROUND - 2 and p.Y < Y_FLOOR[3] + 6 and fromWell(p.X, p.Z) < HOLE_R then
+				table.insert(offenders, ("%s at %d, %d, %d"):format(part.Name, p.X, p.Y, p.Z))
+			end
+		end
+	end
+
+	if #offenders > 0 then
+		warn(("[EndTower] %d parts are sitting in the stair well:"):format(#offenders))
+		for i = 1, math.min(#offenders, 12) do
+			warn("    " .. offenders[i])
+		end
+		warn("[EndTower] The climb is blocked. Move them clear of the well axis.")
+	else
+		print("[EndTower] climb check: clear — nothing but the stair is in the well.")
+	end
 end
 
 --==========================================================================
