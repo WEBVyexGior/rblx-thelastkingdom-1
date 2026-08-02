@@ -785,10 +785,25 @@ do
 		local y = Y_FLOOR[index]
 		local floor = model(m, ("Floor%d"):format(index))
 
-		-- Corbels carrying the joists, all the way round.
+		--[[
+			Corbels carrying the joists — all the way round EXCEPT over the well.
+
+			These sit on a circle about the TOWER's centre, and the well's axis
+			is offset from it, so the two rings intersect: the corbels nearest
+			the well's bearing land inside the shaft. The self-check at the end
+			of this file caught exactly four of them, which is what it is for.
+
+			The clearance adds the corbel's own reach, not just its centre. A
+			four-stud block whose middle is a hair outside the hole still hangs
+			a corner over the climb.
+		]]
+		local corbelReach = 3 -- half the diagonal of a 4 x 4 block, rounded up
 		for i = 0, SEGMENTS - 1 do
 			local a = (i / SEGMENTS) * math.pi * 2
-			mass(floor, "Corbel", Vector3.new(4, 2.4, 4), CFrame.new(at(a, R_IN + 1, y - 1.6)) * facing(a), C.stonePale, M.stone)
+			local p = at(a, R_IN + 1, 0)
+			if fromWell(p.X, p.Z) > HOLE_R + corbelReach then
+				mass(floor, "Corbel", Vector3.new(4, 2.4, 4), CFrame.new(at(a, R_IN + 1, y - 1.6)) * facing(a), C.stonePale, M.stone)
+			end
 		end
 
 		--[[
@@ -1295,10 +1310,34 @@ do
 	local STAIR_PARTS = { Tread = true, Newel = true, Worn = true, Rope = true }
 	local offenders = {}
 
+	--[[
+		Measured on the part's BODY, not its centre. A four-stud corbel whose
+		middle is a hair outside the hole still hangs a corner over the climb,
+		and a centre-only test waves it through.
+
+		Distance from the well's axis to the part's world-space box, in XZ. The
+		half-diagonal would be simpler and is wrong: it takes no account of
+		rotation, so a rail lying TANGENTIALLY across the opening — long side
+		harmlessly along the arc — reads as though its whole length pointed at
+		the shaft, and every handrail in the tower gets reported as blocking
+		the stair. Projecting each of the part's own axes onto world X and Z
+		first is what makes the answer match what is actually there.
+	]]
+	local function distanceToWell(part: BasePart): number
+		local cf, s = part.CFrame, part.Size
+		local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
+		local hx = math.abs(right.X) * s.X / 2 + math.abs(up.X) * s.Y / 2 + math.abs(look.X) * s.Z / 2
+		local hz = math.abs(right.Z) * s.X / 2 + math.abs(up.Z) * s.Y / 2 + math.abs(look.Z) * s.Z / 2
+		-- Point-to-box: zero on whichever axis the point is already inside.
+		local dx = math.max(0, math.abs(part.Position.X - WELL_X) - hx)
+		local dz = math.max(0, math.abs(part.Position.Z - WELL_Z) - hz)
+		return math.sqrt(dx * dx + dz * dz)
+	end
+
 	for _, part in ipairs(root:GetDescendants()) do
 		if part:IsA("BasePart") and not STAIR_PARTS[part.Name] then
 			local p = part.Position
-			if p.Y > GROUND - 2 and p.Y < Y_FLOOR[3] + 6 and fromWell(p.X, p.Z) < HOLE_R then
+			if p.Y > GROUND - 2 and p.Y < Y_FLOOR[3] + 6 and distanceToWell(part) < WELL_R then
 				table.insert(offenders, ("%s at %d, %d, %d"):format(part.Name, p.X, p.Y, p.Z))
 			end
 		end
