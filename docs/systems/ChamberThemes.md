@@ -40,3 +40,7 @@ one direction and lost ground the whole way.
 
 **One folder per chamber**, and every building its own Model, so a whole house
 can be grabbed and moved in one click.
+
+**No two houses the same.** Buildings are assembled from independent traits
+rather than picked from a handful of fixed shapes. See `HouseAnatomy.md` for what
+those traits are and why the Rows deal from a shuffled deck instead of rolling.

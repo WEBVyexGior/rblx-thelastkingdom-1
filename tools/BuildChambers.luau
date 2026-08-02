@@ -33,7 +33,6 @@
 -- Measured from the world, not guessed
 --==========================================================================
 local GROUND = 2
-local HALF_W = 150
 --[[
 	Usable half-width. NOT 150, and not 132 either: the side towers stand on the
 	wall line at x = 150 with a radius of 22, so their inner faces reach in to
@@ -46,6 +45,20 @@ local CHAMBERS = 9
 local PASSAGE_X = 115 -- alternates sign; +odd, -even
 
 local PATH_W = 13
+
+--[[
+	How far down to go on the small stuff. The houses are detailed enough now
+	that this is a real lever, not a formality — a house is roughly 350 parts at
+	3 and roughly 250 at 2.
+
+	  3  everything: door studs, window bars, wattle behind fallen plaster,
+	     water butts, hearths, tie plates, ridge tiles, verge boards
+	  2  the anatomy only — walls, openings, roof, chimney, signs
+	  1  bare shapes
+
+	Drop to 2 if the map gets heavy. The silhouette does not change; only what
+	you see from ten studs away does.
+]]
 local DETAIL = 3
 
 local rng = Random.new(20260801)
@@ -214,21 +227,6 @@ local function bar(parent, name, radius, from: Vector3, to: Vector3, colour, mat
 	part.CFrame = CFrame.lookAt((from + to) / 2, to) * CFrame.Angles(0, math.rad(90), 0)
 	part.Color = colour or C.woodDark
 	part.Material = material or M.log
-	part.CastShadow = false
-	part.Parent = parent
-	made += 1
-	return part
-end
-
-local function ball(parent, name, radius, at, colour, material): Part
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Shape = Enum.PartType.Ball
-	part.Anchored = true
-	part.Size = Vector3.new(radius * 2, radius * 2, radius * 2)
-	part.CFrame = CFrame.new(at)
-	part.Color = colour or C.rock
-	part.Material = material or M.rock
 	part.CastShadow = false
 	part.Parent = parent
 	made += 1
@@ -512,32 +510,64 @@ end
 
 -- The timber frame that half these buildings were built with: posts, a sill
 -- beam, a head beam, and the diagonal braces that stop it racking.
-local function timberFrame(parent, from: Vector3, to: Vector3, height: number, base: number)
+--[[
+	A timber frame run between two points. `from` and `to` carry their own Y, and
+	that Y IS the sill — there is no separate base offset.
+
+	It used to take one, and added it to `from.Y` for the posts while using it as
+	an absolute height for the infill panels. Callers passed `y + stoneH` with
+	corners already at `y`, so the posts started at `2y + stoneH` and the frame
+	floated clear of the masonry it was supposed to be sitting on. One source of
+	height, used the same way by every piece, is the fix.
+]]
+local function timberFrame(parent, from: Vector3, to: Vector3, height: number)
 	local span = to - from
 	local length = span.Magnitude
+	if length < 1 then
+		return
+	end
 	local dir = span.Unit
 	local bays = math.max(2, math.floor(length / 9))
+	local sillY = from.Y
+	local up = Vector3.new(0, height, 0)
 
-	bar(parent, "Sill", 0.6, from + Vector3.new(0, base, 0), to + Vector3.new(0, base, 0), C.woodDark, M.log)
-	bar(parent, "Head", 0.6, from + Vector3.new(0, base + height, 0), to + Vector3.new(0, base + height, 0), C.woodDark, M.log)
+	bar(parent, "Sill", 0.6, from, to, C.woodDark, M.log)
+	bar(parent, "Head", 0.6, from + up, to + up, C.woodDark, M.log)
 
 	for i = 0, bays do
 		local at = from + dir * (length * (i / bays))
-		bar(parent, "Post", 0.55, at + Vector3.new(0, base, 0), at + Vector3.new(0, base + height, 0), C.woodDark, M.log)
+		bar(parent, "Post", 0.55, at, at + up, C.woodDark, M.log)
 	end
 	for i = 0, bays - 1 do
 		local a = from + dir * (length * (i / bays))
 		local b = from + dir * (length * ((i + 1) / bays))
 		-- Braces alternate direction bay to bay, the way a real frame does.
 		if i % 2 == 0 then
-			bar(parent, "Brace", 0.42, a + Vector3.new(0, base + 1, 0), b + Vector3.new(0, base + height * 0.62, 0), C.woodDark, M.log)
+			bar(parent, "Brace", 0.42, a + Vector3.new(0, 1, 0), b + Vector3.new(0, height * 0.62, 0), C.woodDark, M.log)
 		else
-			bar(parent, "Brace", 0.42, b + Vector3.new(0, base + 1, 0), a + Vector3.new(0, base + height * 0.62, 0), C.woodDark, M.log)
+			bar(parent, "Brace", 0.42, b + Vector3.new(0, 1, 0), a + Vector3.new(0, height * 0.62, 0), C.woodDark, M.log)
 		end
-		-- Infill panel between the timbers.
-		if chance(0.72) then
+		-- Infill panel between the timbers: plaster over wattle, and where it has
+		-- fallen away the wattle behind it shows. That patchiness is most of what
+		-- reads as "old" on a timber wall.
+		if chance(0.78) then
 			local mid = (a + b) / 2
-			block(parent, "Infill", Vector3.new((length / bays) * 0.9, height * 0.9, 1.4), CFrame.new(mid.X, base + height / 2, mid.Z) * CFrame.Angles(0, math.atan2(dir.X, dir.Z), 0), C.plaster, M.plaster)
+			local panelW = (length / bays) * 0.9
+			local facing = math.atan2(dir.X, dir.Z)
+			block(parent, "Infill", Vector3.new(panelW, height * 0.9, 1.4), CFrame.new(mid.X, sillY + height / 2, mid.Z) * CFrame.Angles(0, facing, 0), C.plaster, M.plaster)
+			if DETAIL >= 3 and chance(0.35) then
+				for w = 0, 4 do
+					bar(
+						parent,
+						"Wattle",
+						0.22,
+						Vector3.new(mid.X, sillY + height * 0.2 + w * (height * 0.13), mid.Z) - dir * (panelW * 0.42),
+						Vector3.new(mid.X, sillY + height * 0.2 + w * (height * 0.13), mid.Z) + dir * (panelW * 0.42),
+						C.woodPale,
+						M.wood
+					)
+				end
+			end
 		end
 	end
 end
@@ -678,102 +708,662 @@ end
 -- BUILDINGS
 --==========================================================================
 
+--==========================================================================
+-- HOUSE PARTS
+-- Everything below is one recognisable feature of a medieval building. A house
+-- is assembled from them, and which ones it gets is chosen per house — that is
+-- where the variety comes from, not from three fixed shapes.
+--==========================================================================
+
 --[[
-	The workhorse: a stone house with a battered foot, cut openings, a chimney,
-	and a roof that is mostly gone. `ruin` from 0 to 1 decides how much survives
-	and how far the walls have come down.
+	A door with its furniture: studded boards, STRAP HINGES running most of the
+	way across (which is what medieval hinges actually looked like, and the
+	single most recognisable piece of door ironwork), a ring handle, a lock plate,
+	a worn threshold and a boot scraper beside it.
 ]]
-local function stoneHouse(parent, at: Vector3, w: number, d: number, h: number, angle: number, ruin: number, doorState: string)
+local function richDoor(parent, cf: CFrame, w: number, h: number, state: string)
+	-- Opening and dressed surround.
+	block(parent, "DoorVoid", Vector3.new(w, h, 4.6), cf * CFrame.new(0, h / 2, 0), C.ash, M.stone)
+	for side = -1, 1, 2 do
+		block(parent, "Jamb", Vector3.new(1.6, h + 1.2, 4.8), cf * CFrame.new(side * (w / 2 + 0.8), h / 2, 0), C.stonePale, M.stone)
+		-- A stop chamfer: the jamb is squared at the bottom and bevelled above.
+		block(parent, "StopChamfer", Vector3.new(1.8, 2, 5), cf * CFrame.new(side * (w / 2 + 0.8), 2.4, 0), C.stoneWarm, M.stone)
+	end
+	block(parent, "Lintel", Vector3.new(w + 5, 2, 5.4), cf * CFrame.new(0, h + 1, 0), C.stonePale, M.stone)
+	--[[
+		Relieving arch over the lintel: what stops the weight of the wall snapping
+		it. SEGMENTAL, not semicircular — a half-round arch over a six-stud door
+		rises more than four studs by itself, which is a third of a storey, and it
+		came out through the floor above. A segmental arch rises about two, and is
+		the commoner medieval form over a doorway in any case.
+
+		Given a span and a rise, the radius follows: R = (s²/4 + r²) / 2r.
+	]]
+	local span, arcRise = w + 2, 2.2
+	local radius = (span * span / 4 + arcRise * arcRise) / (2 * arcRise)
+	local halfSweep = math.asin((span / 2) / radius)
+	local centreY = h + 2 + arcRise - radius
+	for i = 0, 6 do
+		local a = -halfSweep + (2 * halfSweep) * (i / 6)
+		block(
+			parent,
+			"ReliefStone",
+			Vector3.new(1.5, 2, 5),
+			cf * CFrame.new(math.sin(a) * radius, centreY + math.cos(a) * radius, 0) * CFrame.Angles(0, 0, -a),
+			C.stoneWarm,
+			M.stone
+		)
+	end
+	block(parent, "Threshold", Vector3.new(w + 2, 0.8, 4), cf * CFrame.new(0, 0.4, 1.8), C.stonePale, M.stone)
+	block(parent, "Scraper", Vector3.new(0.4, 1.4, 2.4), cf * CFrame.new(w / 2 + 2.4, 0.9, 2.4), C.iron, M.rusted)
+
+	if state == "none" then
+		return
+	end
+
+	-- The leaf itself, wherever it ended up.
+	local leaf = CFrame.new()
+	if state == "hanging" then
+		leaf = cf * CFrame.new(-w * 0.3, h / 2, -w * 0.34) * CFrame.Angles(0, math.rad(56), math.rad(4))
+	elseif state == "fallen" then
+		leaf = cf * CFrame.new(jitter(1.4), 0.5, -h * 0.44) * CFrame.Angles(math.rad(90), math.rad(jitter(16)), 0)
+	else
+		leaf = cf * CFrame.new(0, h / 2, 0)
+	end
+
+	-- Vertical boards, not one slab.
+	local boards = math.max(4, math.floor(w / 1.6))
+	for i = 0, boards - 1 do
+		block(parent, "Board", Vector3.new(w / boards + 0.1, h - 0.8, 0.8), leaf * CFrame.new(-w / 2 + (i + 0.5) * (w / boards), 0, 0), C.woodDark, M.wood)
+	end
+	-- Ledges on the back, strap hinges on the front.
+	for _, y in { h * 0.3 - h / 2, -(h * 0.3 - h / 2) } do
+		block(parent, "Ledge", Vector3.new(w, 1, 0.5), leaf * CFrame.new(0, y, -0.7), C.wood, M.wood)
+		block(parent, "Strap", Vector3.new(w * 0.78, 1.1, 1), leaf * CFrame.new(-w * 0.08, y, 0.5), C.iron, M.rusted)
+		block(parent, "Pintle", Vector3.new(1.6, 1.6, 1.4), leaf * CFrame.new(-w / 2 + 0.4, y, 0.5), C.iron, M.rusted)
+	end
+	-- Studs across the boards, a ring handle and a lock plate.
+	if DETAIL >= 3 then
+		for i = 0, 4 do
+			for j = 0, 2 do
+				block(parent, "Stud", Vector3.new(0.5, 0.5, 0.4), leaf * CFrame.new(-w / 2 + (i + 0.5) * (w / 5), -h / 3 + j * (h / 3.4), 0.55), C.iron, M.rusted)
+			end
+		end
+		drum(parent, "Ring", 1.1, 0.35, Vector3.zero, C.iron, M.rusted).CFrame = leaf * CFrame.new(w * 0.28, 0, 0.8) * CFrame.Angles(0, math.rad(90), 0)
+		block(parent, "LockPlate", Vector3.new(2, 2.6, 0.4), leaf * CFrame.new(w * 0.28, -1.6, 0.6), C.iron, M.rusted)
+	end
+end
+
+--[[
+	A mullioned window: the stone bar down the middle that divides the lights.
+	It is the difference between a window and a hole, and it is what makes a
+	building read as built rather than punched.
+]]
+local function mullionWindow(parent, cf: CFrame, w: number, h: number, lights: number, arched: boolean, barred: boolean)
+	block(parent, "Void", Vector3.new(w, h, 4.6), cf, C.ash, M.stone)
+	for side = -1, 1, 2 do
+		block(parent, "Jamb", Vector3.new(1.3, h + 0.6, 4.8), cf * CFrame.new(side * (w / 2 + 0.65), 0, 0), C.stonePale, M.stone)
+	end
+	-- Mullions.
+	for i = 1, lights - 1 do
+		block(parent, "Mullion", Vector3.new(1.2, h, 4.7), cf * CFrame.new(-w / 2 + (w * i / lights), 0, 0), C.stonePale, M.stone)
+	end
+	-- Sill, with a drip channel under its front edge.
+	block(parent, "Sill", Vector3.new(w + 3.6, 1.2, 6), cf * CFrame.new(0, -h / 2 - 0.6, 0.7), C.stonePale, M.stone)
+	block(parent, "Drip", Vector3.new(w + 3.6, 0.5, 1), cf * CFrame.new(0, -h / 2 - 1.3, 3), C.stoneDark, M.stone)
+
+	if arched then
+		for light = 0, lights - 1 do
+			local cx = -w / 2 + (w / lights) * (light + 0.5)
+			local r = (w / lights) / 2
+			for i = 0, 4 do
+				local a = math.pi * (i / 4)
+				block(parent, "Voussoir", Vector3.new(1.2, 1.5, 4.7), cf * CFrame.new(cx + math.cos(a) * r, h / 2 + math.sin(a) * r, 0) * CFrame.Angles(0, 0, -a), C.stonePale, M.stone)
+			end
+		end
+	else
+		block(parent, "Lintel", Vector3.new(w + 3.6, 1.4, 5), cf * CFrame.new(0, h / 2 + 0.7, 0), C.stonePale, M.stone)
+	end
+
+	-- Hood mould, and the label stops at its ends.
+	block(parent, "Hood", Vector3.new(w + 5.4, 1, 1.4), cf * CFrame.new(0, h / 2 + (if arched then w / lights / 2 + 1.6 else 2), 1.6), C.stoneDark, M.stone)
+	for side = -1, 1, 2 do
+		block(parent, "LabelStop", Vector3.new(1.6, 1.8, 1.6), cf * CFrame.new(side * (w / 2 + 2.4), h / 2 + (if arched then w / lights / 2 + 1 else 1.4), 1.6), C.stoneDark, M.stone)
+	end
+
+	-- Iron bars: ground floors get them, upper floors do not.
+	if barred and DETAIL >= 3 then
+		for i = 0, lights * 2 do
+			block(parent, "Bar", Vector3.new(0.4, h - 0.6, 0.4), cf * CFrame.new(-w / 2 + (w * i / (lights * 2)), 0, 0.4), C.iron, M.rusted)
+		end
+	end
+end
+
+--[[
+	The JETTY: the upper floor projecting past the lower one, carried on the
+	ends of the floor joists and a bressummer beam.
+
+	This is the single most recognisable thing about a medieval town house, and
+	the fastest way to stop every building looking like a box. It also throws a
+	shadow line across the front, which is free depth.
+]]
+local function jetty(parent, base: CFrame, w: number, d: number, y: number, out: number)
+	--[[
+		The upper floor oversails on every side, so every side needs to show what
+		is holding it up. An overhang carried on nothing at three corners is the
+		kind of thing you only notice once, and then cannot stop noticing.
+
+		Each run: a bressummer along the face, joist ends poking out beneath it,
+		and a bracket at each end.
+	]]
+	local runs = {
+		{ len = w, off = d / 2 + out, turn = 0 }, -- front
+		{ len = w, off = d / 2 + out, turn = 180 }, -- back
+		{ len = d, off = w / 2 + out, turn = 90 }, -- right
+		{ len = d, off = w / 2 + out, turn = -90 }, -- left
+	}
+
+	for _, run in runs do
+		local face = base * CFrame.Angles(0, math.rad(run.turn), 0)
+		block(parent, "Bressummer", Vector3.new(run.len + out * 2 + 2, 2.4, 1.8), face * CFrame.new(0, y, run.off), C.woodDark, M.log)
+
+		local joists = math.max(4, math.floor(run.len / 4))
+		for i = 0, joists do
+			local x = -run.len / 2 + (run.len * i / joists)
+			block(parent, "JoistEnd", Vector3.new(1.4, 1.6, out + 1), face * CFrame.new(x, y - 1.8, run.off - out / 2), C.woodDark, M.log)
+		end
+
+		-- Carved brackets at the ends, which is where a builder showed off.
+		for side = -1, 1, 2 do
+			block(
+				parent,
+				"Bracket",
+				Vector3.new(1.6, 3.4, 3.4),
+				face * CFrame.new(side * (run.len / 2 - 1), y - 3, run.off - out * 0.5) * CFrame.Angles(math.rad(-38), 0, 0),
+				C.woodDark,
+				M.log
+			)
+		end
+	end
+end
+
+-- The triangular wall under a roof slope, and the decorative framing in it.
+local function gableEnd(parent, base: CFrame, w: number, y: number, rise: number, offset: number, timber: boolean)
+	local steps = 6
+	for i = 0, steps - 1 do
+		local t = i / steps
+		local width = w * (1 - t)
+		mass(parent, "Gable", Vector3.new(width, rise / steps + 0.3, 3.4), base * CFrame.new(0, y + rise * (t + 0.5 / steps), offset), if timber then C.plaster else C.stone, if timber then M.plaster else M.stone)
+	end
+	if timber and DETAIL >= 3 then
+		-- Herringbone bracing in the gable: the decoration a carpenter put where
+		-- everyone could see it.
+		for i = -1, 1 do
+			bar(parent, "GableBrace", 0.4, (base * CFrame.new(i * w * 0.22 - 2, y + 1, offset + 1)).Position, (base * CFrame.new(i * w * 0.22 + 2, y + rise * 0.55, offset + 1)).Position, C.woodDark, M.log)
+			bar(parent, "GableBrace", 0.4, (base * CFrame.new(i * w * 0.22 + 2, y + 1, offset + 1)).Position, (base * CFrame.new(i * w * 0.22 - 2, y + rise * 0.55, offset + 1)).Position, C.woodDark, M.log)
+		end
+		bar(parent, "GablePost", 0.45, (base * CFrame.new(0, y, offset + 1)).Position, (base * CFrame.new(0, y + rise * 0.9, offset + 1)).Position, C.woodDark, M.log)
+	end
+end
+
+--[[
+	Roofs, in four shapes. A yard where every roof is the same gable reads as
+	one house copied, however different the walls are — the roofline is what the
+	eye actually compares at a distance.
+
+	  gable      two slopes, vertical ends
+	  hipped     four slopes, no gable
+	  halfhip    gable with the top corner cut back
+	  catslide   one slope run down much further than the other
+]]
+local function roofOf(parent, base: CFrame, w: number, d: number, eaves: number, kind: string, survival: number, tiled: boolean)
+	local rise = d * (if kind == "catslide" then 0.42 else 0.34)
+	local ridgeY = eaves + rise
+	local overhang = 2.6
+
+	local ridgeLen = if kind == "hipped" then w * 0.45 else w + (if kind == "gable" then overhang * 2 else 0)
+	bar(parent, "RidgeBeam", 0.8, (base * CFrame.new(-ridgeLen / 2, ridgeY, 0)).Position, (base * CFrame.new(ridgeLen / 2, ridgeY, 0)).Position, C.woodDark, M.log)
+
+	-- Purlins: the beams that run along the slope halfway up. Without them a
+	-- roof frame is visibly missing something.
+	if DETAIL >= 3 then
+		for side = -1, 1, 2 do
+			bar(parent, "Purlin", 0.55, (base * CFrame.new(-w / 2, eaves + rise * 0.5, side * d * 0.26)).Position, (base * CFrame.new(w / 2, eaves + rise * 0.5, side * d * 0.26)).Position, C.woodDark, M.log)
+		end
+	end
+
+	local rafters = math.max(4, math.floor(w / 4.5))
+	for i = 0, rafters do
+		local x = -w / 2 + (w * i / rafters)
+		local ridgeX = math.clamp(x, -ridgeLen / 2, ridgeLen / 2)
+		for side = -1, 1, 2 do
+			local reach = if kind == "catslide" and side == -1 then d * 0.9 else d / 2 + overhang
+			if rng:NextNumber() < survival + 0.25 then
+				bar(parent, "Rafter", 0.42, (base * CFrame.new(ridgeX, ridgeY, 0)).Position, (base * CFrame.new(x, eaves - (if kind == "catslide" and side == -1 then rise * 0.45 else 0), side * reach)).Position, C.woodDark, M.log)
+			end
+		end
+	end
+
+	-- Hip rafters run from the ridge ends down to the corners.
+	if kind == "hipped" or kind == "halfhip" then
+		for sx = -1, 1, 2 do
+			for sz = -1, 1, 2 do
+				bar(parent, "HipRafter", 0.5, (base * CFrame.new(sx * ridgeLen / 2, ridgeY, 0)).Position, (base * CFrame.new(sx * (w / 2 + overhang), eaves, sz * (d / 2 + overhang))).Position, C.woodDark, M.log)
+			end
+		end
+	end
+
+	--[[
+		Covering, in patches. Whole roofs and bare frames are both wrong; a roof
+		half on is what forty years actually leaves.
+
+		Each patch lies IN the slope, so it is pitched by the slope's own angle.
+		Rotating +φ about X drops the patch's +Z edge, which is the way the near
+		slope falls, so `side` carries the sign straight through.
+	]]
+	local colour = if tiled then C.stoneDark else C.thatch
+	local material = if tiled then M.stone else M.sand
+	local pitch = math.atan(rise / (d / 2))
+	for side = -1, 1, 2 do
+		local reach = if kind == "catslide" and side == -1 then d * 0.9 else d / 2 + overhang
+		-- The long side of a catslide is shallower, because it runs further down.
+		local slope = if kind == "catslide" and side == -1 then math.atan(rise * 1.45 / reach) else pitch
+		for strip = 0, 4 do
+			if rng:NextNumber() < survival * (1 - strip * 0.14) then
+				local frac = strip / 5
+				block(
+					parent,
+					if tiled then "Tiles" else "Thatch",
+					Vector3.new(w * rng:NextNumber(0.32, 0.85), if tiled then 0.6 else 1.6, reach * 0.36),
+					base
+						* CFrame.new(jitter(w * 0.22), eaves + (ridgeY - eaves) * (1 - frac), side * reach * (frac + 0.14))
+						* CFrame.Angles(side * slope, 0, 0),
+					colour,
+					material
+				)
+			end
+		end
+	end
+
+	-- Ridge tiles and verge boards: the trim that finishes a roof.
+	if DETAIL >= 3 and survival > 0.4 then
+		for i = -3, 3 do
+			if chance(0.75) then
+				block(parent, "RidgeTile", Vector3.new(w / 8, 1.2, 3.4), base * CFrame.new(i * (w / 7), ridgeY + 0.8, 0), C.stoneDark, M.stone)
+			end
+		end
+		if kind == "gable" or kind == "halfhip" then
+			for side = -1, 1, 2 do
+				for slope = -1, 1, 2 do
+					bar(parent, "VergeBoard", 0.4, (base * CFrame.new(side * (w / 2 + overhang), ridgeY, 0)).Position, (base * CFrame.new(side * (w / 2 + overhang), eaves, slope * (d / 2 + overhang))).Position, C.woodPale, M.wood)
+				end
+			end
+		end
+		-- Eaves board and the gutter under it.
+		for side = -1, 1, 2 do
+			block(parent, "EavesBoard", Vector3.new(w + overhang * 2, 1.4, 0.7), base * CFrame.new(0, eaves - 0.5, side * (d / 2 + overhang)), C.woodPale, M.wood)
+		end
+	end
+
+	-- What came down, lying inside.
+	for _ = 1, math.floor((1 - survival) * 8) do
+		bar(parent, "FallenRafter", 0.42, (base * CFrame.new(jitter(w * 0.42), 0.7, jitter(d * 0.42))).Position, (base * CFrame.new(jitter(w * 0.42), rng:NextNumber(2, 9), jitter(d * 0.42))).Position, C.woodDark, M.log)
+	end
+	if tiled then
+		for _ = 1, math.floor((1 - survival) * 16) do
+			block(parent, "SlippedTile", Vector3.new(2.6, 0.5, 3.4), base * CFrame.new(jitter(w * 0.6), 0.3, jitter(d * 0.7 + 4)) * CFrame.Angles(jitter(0.3), rng:NextNumber(0, 6), jitter(0.3)), C.stoneDark, M.stone)
+		end
+	end
+	return ridgeY
+end
+
+-- A dormer: the little window standing out of a roof slope. Turns a plain roof
+-- into a lived-in one.
+local function dormer(parent, base: CFrame, x: number, eaves: number, d: number, facing: number)
+	local y = eaves + 4
+	mass(parent, "DormerCheek", Vector3.new(1.4, 7, 8), base * CFrame.new(x - 4, y, facing * (d / 2 - 3)), C.plaster, M.plaster)
+	mass(parent, "DormerCheek", Vector3.new(1.4, 7, 8), base * CFrame.new(x + 4, y, facing * (d / 2 - 3)), C.plaster, M.plaster)
+	mass(parent, "DormerFront", Vector3.new(8, 7, 1.4), base * CFrame.new(x, y, facing * (d / 2 + 1)), C.plaster, M.plaster)
+	mullionWindow(parent, base * CFrame.new(x, y + 0.5, facing * (d / 2 + 1.8)) * CFrame.Angles(0, if facing > 0 then 0 else math.rad(180), 0), 4.4, 4, 2, false, false)
+	-- Its own little roof.
+	for side = -1, 1, 2 do
+		block(parent, "DormerRoof", Vector3.new(9, 0.7, 5), base * CFrame.new(x, y + 5.4, facing * (d / 2 - 1) + side * 1.8) * CFrame.Angles(math.rad(side * -36), 0, 0), C.stoneDark, M.stone)
+	end
+end
+
+-- How far a lean-to reaches clear of the wall it leans on. Named, because the
+-- placement radius has to account for it — see `houseFootprint`.
+local LEAN_DEPTH = 12
+
+-- A lean-to against a side wall: a shed, a woodstore, a privy. Breaks the
+-- rectangle, and no two houses get one in the same place.
+local function leanTo(parent, base: CFrame, side: number, w: number, d: number, y: number)
+	local depth = LEAN_DEPTH
+	local hOuter, hInner = 8, 13
+	local x = side * (w / 2 + depth / 2)
+	mass(parent, "LeanWall", Vector3.new(depth, hOuter, 1.8), base * CFrame.new(x, y + hOuter / 2, d * 0.22), C.stone, M.stone)
+	mass(parent, "LeanWall", Vector3.new(depth, hOuter, 1.8), base * CFrame.new(x, y + hOuter / 2, -d * 0.22), C.stone, M.stone)
+	mass(parent, "LeanEnd", Vector3.new(1.8, hOuter, d * 0.44), base * CFrame.new(side * (w / 2 + depth), y + hOuter / 2, 0), C.stone, M.stone)
+	-- The single slope, from the house wall down and out.
+	for i = 0, 3 do
+		block(parent, "LeanRoof", Vector3.new(depth + 2, 0.7, d * 0.12), base * CFrame.new(x, y + hInner - (hInner - hOuter) * (i / 3) - 1, -d * 0.22 + (d * 0.44) * (i / 3)) * CFrame.Angles(0, 0, math.rad(side * -22)), C.woodPale, M.wood)
+	end
+	if chance(0.6) then
+		for i = 0, 3 do
+			bar(parent, "Log", 0.9, (base * CFrame.new(x - 3, y + 1 + i * 1.8, -3)).Position, (base * CFrame.new(x + 3, y + 1 + i * 1.8, -3)).Position, C.woodDark, M.log)
+		end
+	end
+	return depth
+end
+
+-- A trade sign, hanging from an iron bracket. One detail that tells you what a
+-- building was, which no amount of stonework can.
+local function tradeSign(parent, base: CFrame, x: number, y: number, z: number, trade: string)
+	bar(parent, "Bracket", 0.3, (base * CFrame.new(x, y, z)).Position, (base * CFrame.new(x, y, z + 7)).Position, C.iron, M.rusted)
+	bar(parent, "Stay", 0.24, (base * CFrame.new(x, y + 4, z + 0.5)).Position, (base * CFrame.new(x, y + 0.5, z + 5)).Position, C.iron, M.rusted)
+	for _, off in { 2.5, 6 } do
+		bar(parent, "Hanger", 0.14, (base * CFrame.new(x, y, z + off)).Position, (base * CFrame.new(x, y - 2.4, z + off)).Position, C.iron, M.rusted)
+	end
+	local board = block(parent, "SignBoard", Vector3.new(0.5, 5, 6), base * CFrame.new(x, y - 5, z + 4.2) * CFrame.Angles(0, 0, math.rad(jitter(7))), C.woodDark, M.wood)
+	-- The device on it, cut from iron: a loaf, a horseshoe, a shuttle.
+	if trade == "baker" then
+		drum(parent, "Loaf", 1.5, 0.6, Vector3.zero, C.woodPale, M.wood).CFrame = board.CFrame * CFrame.new(0.5, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+	elseif trade == "smith" then
+		for i = 0, 6 do
+			local a = math.pi * (i / 6) + math.pi
+			block(parent, "Shoe", Vector3.new(0.5, 0.7, 0.7), board.CFrame * CFrame.new(0.5, math.sin(a) * 1.6, math.cos(a) * 1.6), C.iron, M.rusted)
+		end
+	elseif trade == "weaver" then
+		block(parent, "Shuttle", Vector3.new(0.5, 1, 4), board.CFrame * CFrame.new(0.5, 0, 0) * CFrame.Angles(math.rad(20), 0, 0), C.woodPale, M.wood)
+	end
+end
+
+-- A butt under the eaves, catching what the roof sheds.
+local function waterButt(parent, base: CFrame, x: number, y: number, z: number)
+	drum(parent, "Butt", 2.4, 6, (base * CFrame.new(x, y + 3, z)).Position, C.woodDark, M.log)
+	for _, o in { -1.8, 1.8 } do
+		drum(parent, "Hoop", 2.5, 0.4, (base * CFrame.new(x, y + 3 + o, z)).Position, C.rust, M.rusted)
+	end
+	block(parent, "Water", Vector3.new(4, 0.3, 4), base * CFrame.new(x, y + 5.6, z), C.ash, M.sand)
+end
+
+-- Seen through a broken wall: the hearth, which is the heart of the house and
+-- the last thing to fall.
+local function fireplace(parent, base: CFrame, x: number, y: number, z: number, angle: number)
+	local at = CFrame.new((base * CFrame.new(x, y, z)).Position) * CFrame.Angles(0, math.rad(angle), 0)
+	mass(parent, "HearthBack", Vector3.new(11, 12, 2), at, C.stonePale, M.brick)
+	for side = -1, 1, 2 do
+		mass(parent, "HearthJamb", Vector3.new(2, 9, 4), at * CFrame.new(side * 4.5, -1.5, 2), C.stonePale, M.brick)
+	end
+	block(parent, "HearthLintel", Vector3.new(12, 2, 4.4), at * CFrame.new(0, 4, 2), C.woodDark, M.log)
+	block(parent, "Ashes", Vector3.new(8, 0.5, 4), at * CFrame.new(0, -5.6, 2.4), C.ash, M.sand)
+	for _ = 1, 3 do
+		bar(parent, "Log", 0.5, (at * CFrame.new(jitter(2.5), -5.2, 1.4)).Position, (at * CFrame.new(jitter(2.5), -5.2, 3.4)).Position, C.woodDark, M.log)
+	end
+end
+
+--==========================================================================
+--[[
+	THE HOUSE.
+
+	One function, assembled from the parts above, and told WHICH parts to use.
+	Three fixed shapes gave three silhouettes however the numbers moved; this
+	gives storeys, jetty, roof shape, wall build, plan, trade and where the ruin
+	falls — and no two rolls land in the same place.
+
+	`opts`:
+	  w, d          footprint
+	  storeys       1, 1.5 (dormered) or 2
+	  jetty         upper floor projects over the lower
+	  roof          "gable" | "hipped" | "halfhip" | "catslide"
+	  build         "stone" | "timber" | "mixed"
+	  tiled         stone tiles instead of thatch
+	  ruin          0 to 1
+	  damage        "front" | "back" | "corner" | "roof"
+	  trade         "baker" | "smith" | "weaver" | nil
+	  lean          -1, 1 or nil, for a shed on that side
+]]
+local function house(parent, at: Vector3, angle: number, opts)
 	local m = model(parent, "House")
 	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(angle), 0)
+
+	local w = opts.w
+	local d = opts.d
+	local storeys = opts.storeys or 1
+	local ruin = opts.ruin or 0.3
+	local build = opts.build or "stone"
+	local roofKind = opts.roof or "gable"
 	local hw, hd = w / 2, d / 2
 
+	local floorH = 12
+	local wallH = floorH * (if storeys >= 2 then 2 else 1) + (if storeys == 1.5 then 4 else 0)
+
+	--[[
+		HEIGHTS. Two kinds, and mixing them is the easiest way to build a house
+		two studs into the air:
+
+		  yRel   measured from `base`, for anything positioned as `base * CFrame`
+		  yAbs   world Y, for anything taking a Vector3 (courseWall, timberFrame,
+		         bar, chimney, rubble)
+
+		`base` already carries `at.Y`, so passing an absolute height into a
+		base-relative CFrame counts the ground twice.
+	]]
+	local yRel = 4.2 -- top of the plinth
+	local yAbs = at.Y + yRel
+
+	-- Foot, with a drip mould where it meets the wall.
 	plinth(m, at, w, d, angle)
-	local y = at.Y + 4.2
+	block(m, "DripMould", Vector3.new(w + 2.4, 1, d + 2.4), base * CFrame.new(0, yRel + 0.2, 0), C.stoneDark, M.stone)
 
 	local function corner(x, z): Vector3
 		local p = (base * CFrame.new(x, 0, z)).Position
-		return Vector3.new(p.X, y, p.Z)
+		return Vector3.new(p.X, yAbs, p.Z)
 	end
 	local a, b, c, dd = corner(-hw, hd), corner(hw, hd), corner(hw, -hd), corner(-hw, -hd)
 
-	local sideBreaks = if ruin > 0.55 then { { 0.28, 0.52, 0 }, { 0.52, 0.74, 0.42 } } else { { 0.6, 0.76, 0.62 } }
-	local backBreaks = if ruin > 0.7 then { { 0.18, 0.72, 0 } } else if ruin > 0.4 then { { 0.4, 0.6, 0.5 } } else {}
-
-	-- The front wall keeps its full height longest: it is the thickest, and it
-	-- is the one facing the road.
-	courseWall(m, a, b, h, 4, { { 0.4, 0.58, 0 } }, C.stone, M.stone)
-	courseWall(m, b, c, h * (1 - ruin * 0.22), 4, sideBreaks, C.stone, M.stone)
-	courseWall(m, c, dd, h * (1 - ruin * 0.38), 4, backBreaks, C.stone, M.stone)
-	courseWall(m, dd, a, h * (1 - ruin * 0.22), 4, sideBreaks, C.stone, M.stone)
-
-	doorway(m, base * CFrame.new(0, 4.2, hd), 6, 10, doorState)
-
-	if ruin < 0.72 then
-		window(m, base * CFrame.new(-hw * 0.58, 4.2 + h * 0.55, hd), 4.4, 5.4, false, true)
-		window(m, base * CFrame.new(hw * 0.58, 4.2 + h * 0.55, hd), 4.4, 5.4, false, true)
-	end
-	if ruin < 0.5 then
-		window(m, base * CFrame.new(hw, 4.2 + h * 0.55, 0) * CFrame.Angles(0, math.rad(90), 0), 4.4, 5.4, false, true)
+	-- Where the damage falls decides which wall keeps its height. Randomising
+	-- every wall equally gives a building that is uniformly nibbled; picking a
+	-- side gives one that was hit.
+	local dmg = opts.damage or "back"
+	local none = {}
+	local light = { { 0.62, 0.78, 0.6 } }
+	local heavy = { { 0.3, 0.56, 0 }, { 0.56, 0.76, 0.4 } }
+	local frontBreaks, backBreaks, leftBreaks, rightBreaks = { { 0.42, 0.58, 0 } }, none, light, light
+	if dmg == "front" then
+		frontBreaks = { { 0.42, 0.58, 0 }, { 0.62, 0.86, 0.35 } }
+	elseif dmg == "back" then
+		backBreaks = if ruin > 0.55 then heavy else light
+	elseif dmg == "corner" then
+		rightBreaks = heavy
+		backBreaks = { { 0, 0.3, 0.3 } }
 	end
 
-	roof(m, at + Vector3.new(0, y - at.Y, 0), w, d, angle, h, math.max(0, 1 - ruin * 1.35))
-	chimney(m, (base * CFrame.new(hw * 0.62, 0, -hd * 0.45)).Position + Vector3.new(0, y - at.Y, 0), h + d * 0.42, angle, ruin > 0.4)
+	local groundColour = if build == "timber" then C.stoneWarm else C.stone
+	--[[
+		The ground floor is ALWAYS a full masonry storey, and timber only ever
+		sits on top of it. It used to be a waist-high plinth wall of about six
+		studs, which left an eleven-stud door taller than the wall it was cut
+		into — the head, its lintel and its arch all came out above the masonry
+		and through the timber sill beam above.
 
-	if DETAIL >= 3 and ruin > 0.4 then
-		rubble(m, at + Vector3.new(jitter(hw), 0, jitter(hd)), 9, 8)
+		A masonry ground floor under a jettied timber upper is also simply what
+		these were: the stone carried the overhang.
+	]]
+	local groundH = if build == "stone" or storeys < 1.5 then wallH else floorH
+
+	-- Ground floor, always masonry: that is why the ground floor survives.
+	courseWall(m, a, b, groundH, 4.4, frontBreaks, groundColour, M.stone)
+	courseWall(m, b, c, groundH * (1 - ruin * 0.2), 4.4, rightBreaks, groundColour, M.stone)
+	courseWall(m, c, dd, groundH * (1 - ruin * 0.35), 4.4, backBreaks, groundColour, M.stone)
+	courseWall(m, dd, a, groundH * (1 - ruin * 0.2), 4.4, leftBreaks, groundColour, M.stone)
+
+	-- Upper floor: timber above the stone, and jettied if it was a town house.
+	local upperRel = yRel + groundH
+	local upperAbs = yAbs + groundH
+	local out = if opts.jetty then 3 else 0
+	local uw, ud = w + out * 2, d + out * 2
+	if build ~= "stone" and storeys >= 1.5 then
+		if opts.jetty then
+			jetty(m, base, w, d, upperRel + 1, out)
+		end
+		local survival = 1 - ruin
+		-- The frame sits ON the masonry. It used to start two studs higher, which
+		-- pushed its head above the eaves on the 1.5-storey houses.
+		local function ucorner(x, z): Vector3
+			local p = (base * CFrame.new(x, 0, z)).Position
+			return Vector3.new(p.X, upperAbs, p.Z)
+		end
+		local ua, ub, uc, ud2 = ucorner(-uw / 2, ud / 2), ucorner(uw / 2, ud / 2), ucorner(uw / 2, -ud / 2), ucorner(-uw / 2, -ud / 2)
+		local upperH = wallH - groundH
+		timberFrame(m, ua, ub, upperH)
+		timberFrame(m, ub, uc, upperH)
+		if survival > 0.45 then
+			timberFrame(m, uc, ud2, upperH)
+			timberFrame(m, ud2, ua, upperH)
+		end
+	elseif build == "stone" and storeys >= 2 then
+		-- A string course marking the floor inside, which is what says two
+		-- storeys from the outside.
+		block(m, "StringCourse", Vector3.new(w + 1.6, 1.2, d + 1.6), base * CFrame.new(0, yRel + floorH, 0), C.stoneDark, M.stone)
+	end
+
+	local eavesRel = yRel + wallH
+	local rise = ud * (if roofKind == "catslide" then 0.42 else 0.34)
+
+	--[[
+		Gables. They belong on the ends the ridge points at — and the ridge runs
+		along local X — so they stand at x = ±w/2, spanning the DEPTH.
+
+		Rotating the frame 90° about Y puts the gable's own width along its local
+		X while its local Z becomes the house's X, which is where the offset goes.
+		Building them unrotated draws both gables in the same place, across the
+		front, which is a wall where a roof should be.
+	]]
+	if roofKind == "gable" or roofKind == "halfhip" or roofKind == "catslide" then
+		local turned = base * CFrame.Angles(0, math.rad(90), 0)
+		for side = -1, 1, 2 do
+			gableEnd(m, turned, ud, eavesRel, rise, side * (uw / 2), build ~= "stone")
+		end
+	end
+
+	--[[
+		Openings. The front gets the door and the best windows, because it faces
+		the road.
+
+		Every height here is a FRACTION of the storey it is cut into, not a fixed
+		number. Fixed numbers were fine while every house was the same height and
+		wrong the moment the storeys started varying — a door written as 11 studs
+		does not fit a 12-stud wall once its lintel and arch are counted.
+	]]
+	local doorH = math.clamp(groundH - 4, 7, 11)
+	richDoor(m, base * CFrame.new(0, yRel, hd + 0.4), 6.4, doorH, opts.door or pick({ "hanging", "fallen", "shut" }))
+
+	local groundLights = if w > 26 then 3 else 2
+	local sillY = yRel + groundH * 0.5
+	if ruin < 0.75 then
+		mullionWindow(m, base * CFrame.new(-hw * 0.6, sillY, hd + 0.4), 5.4, 5.4, groundLights, false, true)
+		mullionWindow(m, base * CFrame.new(hw * 0.6, sillY, hd + 0.4), 5.4, 5.4, groundLights, false, true)
+	end
+	if ruin < 0.55 then
+		mullionWindow(m, base * CFrame.new(hw + 0.4, sillY, 0) * CFrame.Angles(0, math.rad(90), 0), 5, 5, 2, false, true)
+	end
+
+	--[[
+		Upper windows only on a FULL upper storey. A 1.5-storey house has an attic
+		under the slope, not a room with windows in the wall — its light comes
+		through the dormer below, which is the whole reason a dormer exists.
+	]]
+	if storeys >= 2 and ruin < 0.6 then
+		for _, x in { -hw * 0.55, hw * 0.55 } do
+			mullionWindow(m, base * CFrame.new(x, upperRel + (wallH - groundH) * 0.5, hd + out + 0.4), 5, 5.4, 2, chance(0.4), false)
+		end
+	end
+	if storeys == 1.5 and ruin < 0.5 then
+		dormer(m, base, 0, eavesRel - 2, d, 1)
+	end
+
+	-- Roof.
+	local survival = math.clamp(1 - ruin * 1.25 - (if dmg == "roof" then 0.35 else 0), 0, 1)
+	roofOf(m, base, uw, ud, eavesRel, roofKind, survival, opts.tiled == true)
+
+	-- Chimney: on the gable end, where it belongs, and broken if the house is.
+	-- Absolute, so it is built from the plinth top and not from the ground twice.
+	local stackAt = (base * CFrame.new(hw * 0.72, 0, -hd * 0.5)).Position
+	chimney(m, Vector3.new(stackAt.X, yAbs, stackAt.Z), wallH + d * 0.4, angle, ruin > 0.45)
+
+	-- The extras that make one house not another.
+	if opts.lean then
+		leanTo(m, base, opts.lean, w, d, yRel)
+	end
+	if opts.trade and DETAIL >= 2 then
+		tradeSign(m, base, hw * 0.72, yRel + groundH * 0.85, hd, opts.trade)
+	end
+	if DETAIL >= 3 and chance(0.65) then
+		waterButt(m, base, -hw * 0.78, yRel, hd + 3.4)
+	end
+	if DETAIL >= 3 and ruin > 0.45 then
+		-- With a wall down, the hearth is visible from the street. It faces INTO
+		-- the room, so it turns with the house rather than always facing north.
+		fireplace(m, base, 0, yRel + 6, -hd + 2, angle + 180)
+	end
+	if DETAIL >= 3 then
+		-- Tie plates, and a cellar hatch beside the door.
+		for _, x in { -hw * 0.5, hw * 0.5 } do
+			block(m, "AnchorV", Vector3.new(0.7, 3, 1.2), base * CFrame.new(x, 4.2 + groundH * 0.9, hd + 2.4), C.rust, M.rusted)
+			block(m, "AnchorH", Vector3.new(3, 0.7, 1.2), base * CFrame.new(x, 4.2 + groundH * 0.9, hd + 2.4), C.rust, M.rusted)
+		end
+		block(m, "CellarHatch", Vector3.new(6, 0.6, 5), base * CFrame.new(-hw * 0.6, 4.6, hd + 4) * CFrame.Angles(0, math.rad(jitter(8)), 0), C.woodDark, M.wood)
+	end
+	if ruin > 0.4 then
+		rubble(m, at + Vector3.new(jitter(hw), 0, jitter(hd)), 10, 9)
 	end
 	return m
 end
 
 --[[
-	Timber over a stone base: the ordinary building of the period, and a
-	completely different silhouette from the stone houses, which is the point.
-	Two of the same thing is one thing too many.
+	How much ground a house actually needs claimed.
+
+	The corner-to-centre distance of the footprint, widened by the jetty overhang
+	and again by a lean-to if it has one. A lean-to reaches twelve studs clear of
+	the side wall, so a radius covering only the main block lets the shed land on
+	the road — and "nothing on the path" is one of the three rules this tool is
+	not allowed to break.
 ]]
-local function timberHouse(parent, at: Vector3, w: number, d: number, h: number, angle: number, ruin: number)
-	local m = model(parent, "TimberHouse")
-	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(angle), 0)
-	local hw, hd = w / 2, d / 2
-	local stoneH = 6
-
-	plinth(m, at, w, d, angle)
-	local y = at.Y + 4.2
-
-	local function corner(x, z): Vector3
-		local p = (base * CFrame.new(x, 0, z)).Position
-		return Vector3.new(p.X, y, p.Z)
+local function houseFootprint(opts): number
+	local out = if opts.jetty then 3 else 0
+	local w, d = opts.w + out * 2, opts.d + out * 2
+	local r = math.sqrt(w * w + d * d) / 2
+	if opts.lean then
+		r += LEAN_DEPTH
 	end
-	local a, b, c, dd = corner(-hw, hd), corner(hw, hd), corner(hw, -hd), corner(-hw, -hd)
+	return r
+end
 
-	-- Stone to waist height, timber above. That is how they were built and it
-	-- is why the stone half is still standing.
-	courseWall(m, a, b, stoneH, 3.4, { { 0.4, 0.58, 0 } }, C.stoneWarm, M.stone)
-	courseWall(m, b, c, stoneH, 3.4, {}, C.stoneWarm, M.stone)
-	courseWall(m, c, dd, stoneH, 3.4, if ruin > 0.6 then { { 0.3, 0.6, 0.4 } } else {}, C.stoneWarm, M.stone)
-	courseWall(m, dd, a, stoneH, 3.4, {}, C.stoneWarm, M.stone)
+--[[
+	Rolls the traits for a house. Every knob is independent, so the combinations
+	run into the thousands.
 
-	local survival = 1 - ruin
-	if survival > 0.3 then
-		timberFrame(m, a, b, h - stoneH, y + stoneH)
-		timberFrame(m, b, c, h - stoneH, y + stoneH)
-		if survival > 0.55 then
-			timberFrame(m, c, dd, h - stoneH, y + stoneH)
-			timberFrame(m, dd, a, h - stoneH, y + stoneH)
-		end
-	end
-
-	doorway(m, base * CFrame.new(0, 4.2, hd), 5.6, 9, if ruin > 0.55 then "fallen" else "hanging")
-	if ruin < 0.6 then
-		window(m, base * CFrame.new(-hw * 0.55, 4.2 + h * 0.62, hd), 4, 4.6, false, true)
-		window(m, base * CFrame.new(hw * 0.55, 4.2 + h * 0.62, hd), 4, 4.6, false, true)
-	end
-
-	roof(m, at + Vector3.new(0, y - at.Y, 0), w, d, angle, h, math.max(0, 1 - ruin * 1.5))
-	if DETAIL >= 3 then
-		rubble(m, at + Vector3.new(jitter(hw), 0, jitter(hd)), 8, 6)
-	end
-	return m
+	It returns the OPTIONS rather than building, because the placement radius has
+	to be known before a position is chosen, and the radius depends on the roll.
+]]
+local function rollHouseOpts(ruin: number, trade: string?)
+	local build = pick({ "stone", "timber", "mixed", "timber", "mixed" })
+	local storeys = pick({ 1, 1.5, 2, 1.5, 2 })
+	return {
+		w = rng:NextNumber(22, 34),
+		d = rng:NextNumber(20, 30),
+		storeys = storeys,
+		jetty = build ~= "stone" and storeys >= 1.5 and chance(0.7),
+		roof = pick({ "gable", "gable", "hipped", "halfhip", "catslide" }),
+		build = build,
+		tiled = chance(0.45),
+		ruin = math.clamp(ruin * rng:NextNumber(0.7, 1.25), 0.1, 0.9),
+		damage = pick({ "front", "back", "corner", "roof", "back" }),
+		trade = trade,
+		lean = if chance(0.45) then pick({ -1, 1 }) else nil,
+		door = pick({ "hanging", "fallen", "shut", "none" }),
+	}
 end
 
 -- A long building: barracks, stable, storehouse. Same anatomy, different
@@ -1046,7 +1636,7 @@ local function fallenTower(parent, at: Vector3, angle: number, length: number, r
 	end
 
 	-- Battlements that went over with it, scattered along the fall line.
-	for i = 1, 9 do
+	for _ = 1, 9 do
 		block(m, "Merlon", Vector3.new(6, 7, 6), base * CFrame.new(-length / 2 + rng:NextNumber(0, length), 3, jitter(radius * 2.2)) * CFrame.Angles(jitter(0.6), rng:NextNumber(0, 6), jitter(0.6)), C.stoneDark, M.stone)
 	end
 	-- And the crater of rubble where the head landed.
@@ -1081,17 +1671,37 @@ end
 	giving up. The alternative — a fixed layout per chamber — would put a house
 	through the road the moment any number above changed.
 ]]
-local function place(index: number, radius: number, build: (Vector3, number) -> ())
+--[[
+	Finds somewhere in the chamber this thing fits, and builds it there.
+
+	Attempts are generous because the houses now reserve their true footprint —
+	half the diagonal, plus the jetty, plus a lean-to — which is a good deal more
+	ground than the flat numbers that used to be passed in. The Rows fit seven of
+	them around a road, and sixty random darts was not reliably enough.
+
+	A failure is REPORTED. It used to return false into nothing, so a building
+	that never found room simply was not there, and the only way to notice was to
+	count houses in the viewport.
+]]
+local function place(index: number, radius: number, build: (Vector3, number) -> ()): boolean
 	local zA, zB = chamberBounds(index)
-	for _ = 1, 60 do
+	local lo, hi = math.min(zA, zB) + radius, math.max(zA, zB) - radius
+	if radius >= INNER or lo >= hi then
+		warn(("[Chambers] Area%d: radius %d is larger than the chamber."):format(index, radius))
+		return false
+	end
+
+	for _ = 1, 140 do
 		local x = rng:NextNumber(-INNER + radius, INNER - radius)
-		local z = rng:NextNumber(math.min(zA, zB) + radius, math.max(zA, zB) - radius)
+		local z = rng:NextNumber(lo, hi)
 		if free(x, z, radius) then
 			claim(x, z, radius)
 			build(Vector3.new(x, GROUND, z), facingPath(x, z))
 			return true
 		end
 	end
+
+	warn(("[Chambers] Area%d: no room for something %d wide — skipped."):format(index, radius * 2))
 	return false
 end
 
@@ -1117,8 +1727,21 @@ for index = 1, CHAMBERS do
 
 	if index == 1 then
 		-- Outer Ward: a guardhouse, and everything barricaded from the inside.
-		place(index, 22, function(at, a)
-			stoneHouse(f, at, 30, 24, 18, a, decay, "hanging")
+		-- The guardhouse: masonry, hipped, no jetty. It was built to be held, not
+		-- to be lived in, and it should not look like the Rows.
+		local guardhouse = {
+			w = 32,
+			d = 26,
+			storeys = 2,
+			build = "stone",
+			roof = "hipped",
+			tiled = true,
+			ruin = decay * 0.7,
+			damage = "corner",
+			door = "hanging",
+		}
+		place(index, houseFootprint(guardhouse), function(at, a)
+			house(f, at, a, guardhouse)
 		end)
 		place(index, 20, function(at, a)
 			longBuilding(f, at, 44, 20, 16, a, decay, 3)
@@ -1147,8 +1770,23 @@ for index = 1, CHAMBERS do
 		place(index, 22, function(at, a)
 			stallRow(f, at, a, 5)
 		end)
-		place(index, 18, function(at, a)
-			timberHouse(f, at, 26, 22, 17, a, decay)
+		-- The farrier's, beside the stalls: a working building, so it gets the
+		-- trade sign and a lean-to for the fodder.
+		local farrier = {
+			w = 26,
+			d = 22,
+			storeys = 1.5,
+			build = "mixed",
+			jetty = true,
+			roof = "catslide",
+			ruin = decay,
+			damage = "back",
+			trade = "smith",
+			lean = pick({ -1, 1 }),
+			door = "fallen",
+		}
+		place(index, houseFootprint(farrier), function(at, a)
+			house(f, at, a, farrier)
 		end)
 		place(index, 12, function(at, a)
 			cart(f, at, a)
@@ -1171,8 +1809,22 @@ for index = 1, CHAMBERS do
 		place(index, 24, function(at, a)
 			longBuilding(f, at, 46, 22, 17, a, decay, 3)
 		end)
-		place(index, 18, function(at, a)
-			stoneHouse(f, at, 26, 22, 17, a, decay, "fallen")
+		-- The bakehouse. Half-hipped, tiled (a kitchen roof was the one they kept
+		-- off thatch, for obvious reasons), and signed with a loaf.
+		local bakehouse = {
+			w = 27,
+			d = 23,
+			storeys = 1.5,
+			build = "stone",
+			roof = "halfhip",
+			tiled = true,
+			ruin = decay,
+			damage = "front",
+			trade = "baker",
+			door = "fallen",
+		}
+		place(index, houseFootprint(bakehouse), function(at, a)
+			house(f, at, a, bakehouse)
 		end)
 		for _ = 1, 9 do
 			place(index, 6, function(at)
@@ -1220,8 +1872,23 @@ for index = 1, CHAMBERS do
 		place(index, 24, function(at, a)
 			longBuilding(f, at, 48, 22, 18, a, decay, 3)
 		end)
-		place(index, 18, function(at, a)
-			stoneHouse(f, at, 28, 22, 18, a, decay, "hanging")
+		-- The smith's own house, over the shop: jettied, so the street below the
+		-- workshop stayed dry, and signed with a shoe.
+		local smithHouse = {
+			w = 28,
+			d = 22,
+			storeys = 2,
+			build = "mixed",
+			jetty = true,
+			roof = "gable",
+			tiled = true,
+			ruin = decay,
+			damage = "roof",
+			trade = "smith",
+			door = "hanging",
+		}
+		place(index, houseFootprint(smithHouse), function(at, a)
+			house(f, at, a, smithHouse)
 		end)
 		for _ = 1, 7 do
 			place(index, 6, function(at)
@@ -1278,15 +1945,80 @@ for index = 1, CHAMBERS do
 			ruinShell(f, at, 24, 20, 16, a)
 		end)
 	elseif index == 7 then
-		-- The Rows: ordinary streets. The only cheerful place in the castle.
-		for _ = 1, 5 do
-			place(index, 16, function(at, a)
-				timberHouse(f, at, rng:NextNumber(22, 30), rng:NextNumber(20, 26), 18, a, decay * rng:NextNumber(0.7, 1.15))
-			end)
+		--[[
+			The Rows: ordinary streets, and the one chamber where the buildings
+			are the point rather than the backdrop.
+
+			These are DEALT, not rolled. Rolling each house independently means
+			two neighbours can land on the same numbers by chance, and on a
+			street of seven that is exactly the repetition you notice. A deck of
+			seven written-out houses, shuffled, cannot repeat — and each one is
+			a building somebody would recognise: the tall jettied merchant's,
+			the widow's single storey, the weaver's with the long upper window,
+			the burnt one, and so on.
+		]]
+		local ROW_HOUSES = {
+			{ -- The merchant's: tallest on the street, jettied over the road.
+				w = 30, d = 24, storeys = 2, build = "timber", jetty = true,
+				roof = "gable", tiled = true, damage = "roof", ruinMul = 0.7,
+				door = "shut", lean = nil,
+			},
+			{ -- The weaver's: upper floor windows run long, for the light.
+				w = 26, d = 22, storeys = 2, build = "mixed", jetty = true,
+				roof = "halfhip", tiled = false, damage = "back", ruinMul = 0.9,
+				trade = "weaver", door = "hanging",
+			},
+			{ -- A widow's cottage: one storey, thatched, catslide over a lean-to.
+				w = 22, d = 20, storeys = 1, build = "stone", jetty = false,
+				roof = "catslide", tiled = false, damage = "corner", ruinMul = 1.1,
+				lean = -1, door = "fallen",
+			},
+			{ -- The one with the attic room, and a dormer looking at the street.
+				w = 27, d = 23, storeys = 1.5, build = "timber", jetty = false,
+				roof = "gable", tiled = false, damage = "front", ruinMul = 0.8,
+				door = "shut",
+			},
+			{ -- Burnt out: the roof went first, so it is nearly all wall.
+				w = 24, d = 21, storeys = 1.5, build = "mixed", jetty = true,
+				roof = "gable", tiled = false, damage = "roof", ruinMul = 1.45,
+				door = "none",
+			},
+			{ -- Old and squat: hipped, tiled, stone through — the oldest here.
+				w = 25, d = 25, storeys = 1, build = "stone", jetty = false,
+				roof = "hipped", tiled = true, damage = "back", ruinMul = 0.85,
+				lean = 1, door = "hanging",
+			},
+			{ -- The corner house, taken hardest: front wall down to the sill.
+				w = 29, d = 22, storeys = 2, build = "mixed", jetty = true,
+				roof = "halfhip", tiled = true, damage = "front", ruinMul = 1.35,
+				door = "fallen", lean = 1,
+			},
+		}
+
+		-- Fisher-Yates, so the same seven houses stand in a different order every
+		-- time the tool runs and the street is never memorised.
+		for i = #ROW_HOUSES, 2, -1 do
+			local j = rng:NextInteger(1, i)
+			ROW_HOUSES[i], ROW_HOUSES[j] = ROW_HOUSES[j], ROW_HOUSES[i]
 		end
-		for _ = 1, 2 do
-			place(index, 14, function(at, a)
-				stoneHouse(f, at, 24, 22, 17, a, decay, pick({ "hanging", "fallen" }))
+
+		for _, spec in ipairs(ROW_HOUSES) do
+			local opts = {
+				w = spec.w,
+				d = spec.d,
+				storeys = spec.storeys,
+				build = spec.build,
+				jetty = spec.jetty,
+				roof = spec.roof,
+				tiled = spec.tiled,
+				ruin = math.clamp(decay * spec.ruinMul, 0.1, 0.9),
+				damage = spec.damage,
+				trade = spec.trade,
+				lean = spec.lean,
+				door = spec.door,
+			}
+			place(index, houseFootprint(opts), function(at, a)
+				house(f, at, a, opts)
 			end)
 		end
 		for _ = 1, 3 do
@@ -1317,6 +2049,15 @@ for index = 1, CHAMBERS do
 		place(index, 16, function(at, a)
 			ruinShell(f, at, 22, 20, 18, a)
 		end)
+		-- Two officers' houses caught in the collapse. Rolled rather than written,
+		-- because here they are wreckage in the background and the silhouette is
+		-- doing the work, not the doorway.
+		for _ = 1, 2 do
+			local opts = rollHouseOpts(decay)
+			place(index, houseFootprint(opts), function(at, a)
+				house(f, at, a, opts)
+			end)
+		end
 		for _ = 1, 5 do
 			place(index, 12, function(at, a)
 				barricade(f, at, a + 90, rng:NextNumber(24, 38))
