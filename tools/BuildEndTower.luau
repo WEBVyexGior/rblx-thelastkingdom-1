@@ -313,27 +313,53 @@ do
 	end
 
 	--[[
-		And the CASTLE. The first version of this tower was placed by arithmetic
-		alone and landed 14 studs inside SideTowerW, because nothing ever checked.
+		And the CASTLE.
 
-		This measures instead: every Model in the chamber's Structure, its real
-		bounding box, against the tower's footprint. Curtain walls are excluded —
-		they are long flat slabs whose bounding boxes span the whole chamber, so
-		testing them would reject every position there is. Round towers, which
-		are the things actually in the way, are exactly what it catches.
+		Measuring a tower by its Model bounding box does NOT work, and the first
+		attempt at this check proved it: SideTowerW measured 88 and is 22. The
+		box includes the rubble cone spalled off its foot and the merlons that
+		fell around it, which spread more than twice as far as the shaft does. A
+		check built on that rejects every position in the chamber.
+
+		So measure AT HEIGHT. Above the rubble line only the shaft is left, and
+		the horizontal extent of what is up there is the thing a neighbour has
+		to clear. Curtain walls are skipped either way: a wall's box spans the
+		whole chamber and is not a footprint.
 	]]
+	local RUBBLE_LINE = 30 -- above the batter, the rubble and the fallen stones
+
+	local function shaftFootprint(node: Model): (number?, number?, number?)
+		local minX, maxX, minZ, maxZ
+		for _, part in ipairs(node:GetDescendants()) do
+			if part:IsA("BasePart") and part.Position.Y >= RUBBLE_LINE then
+				local hx, hz = part.Size.X / 2, part.Size.Z / 2
+				local lo, hi = part.Position.X - hx, part.Position.X + hx
+				local zlo, zhi = part.Position.Z - hz, part.Position.Z + hz
+				minX = if minX then math.min(minX, lo) else lo
+				maxX = if maxX then math.max(maxX, hi) else hi
+				minZ = if minZ then math.min(minZ, zlo) else zlo
+				maxZ = if maxZ then math.max(maxZ, zhi) else zhi
+			end
+		end
+		if not minX then
+			return nil, nil, nil
+		end
+		return (minX + maxX) / 2, (minZ + maxZ) / 2, math.max(maxX - minX, maxZ - minZ) / 2
+	end
+
 	local chamber = battleground:FindFirstChild(("Chamber%d"):format(LAST))
 	local structure = chamber and chamber:FindFirstChild("Structure")
 	if structure then
 		for _, node in ipairs(structure:GetChildren()) do
 			if node:IsA("Model") and node.Name:find("Tower") then
-				local cf, size = node:GetBoundingBox()
-				local reach = math.max(size.X, size.Z) / 2
-				local gap = Vector3.new(cf.Position.X - TOWER_X, 0, cf.Position.Z - TOWER_Z).Magnitude
-				if gap < reach + R_BASE then
-					warn(("[EndTower] ABORTED: %s is at %d, %d and reaches %d — the tower needs %d and only has %d."):format(node.Name, cf.Position.X, cf.Position.Z, reach, reach + R_BASE, gap))
-					warn("[EndTower] Move TOWER_X / TOWER_Z. Run tools/SurveyEndZone.luau to see what is where.")
-					return
+				local cx, cz, reach = shaftFootprint(node)
+				if cx and cz and reach then
+					local gap = Vector3.new(cx - TOWER_X, 0, cz - TOWER_Z).Magnitude
+					if gap < reach + R_BASE then
+						warn(("[EndTower] ABORTED: %s stands at %d, %d with a shaft radius of %d — this needs %d clear and has %d."):format(node.Name, cx, cz, reach, reach + R_BASE, gap))
+						warn("[EndTower] Move TOWER_X / TOWER_Z. Run tools/SurveyEndZone.luau to see what is where.")
+						return
+					end
 				end
 			end
 		end

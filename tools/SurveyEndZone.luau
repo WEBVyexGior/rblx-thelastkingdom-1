@@ -106,25 +106,51 @@ end
 --==========================================================================
 local obstacles: { { name: string, x: number, z: number, reach: number } } = {}
 
+--[[
+	How wide something is WHERE IT MATTERS.
+
+	A tower's bounding box is not its footprint. It includes the rubble cone
+	spalled off the foot and the merlons that fell around it, which spread more
+	than twice as far as the shaft: SideTowerW boxes at 88 and is 22. A grid
+	scored on the box says the whole chamber is full.
+
+	So anything above `RUBBLE_LINE` is measured on its own, because above the
+	rubble only the standing structure is left. Falls back to the full extent
+	when there is nothing up there — a low ruin genuinely is what its box says.
+]]
+local RUBBLE_LINE = 30
+
+local function extentsAbove(node: Instance, minY: number)
+	local minX, maxX, minZ, maxZ
+	for _, part in ipairs(node:GetDescendants()) do
+		if part:IsA("BasePart") and part.Position.Y >= minY then
+			local hx, hz = part.Size.X / 2, part.Size.Z / 2
+			local lo, hi = part.Position.X - hx, part.Position.X + hx
+			local zlo, zhi = part.Position.Z - hz, part.Position.Z + hz
+			minX = if minX then math.min(minX, lo) else lo
+			maxX = if maxX then math.max(maxX, hi) else hi
+			minZ = if minZ then math.min(minZ, zlo) else zlo
+			maxZ = if maxZ then math.max(maxZ, zhi) else zhi
+		end
+	end
+	if not minX then
+		return nil
+	end
+	return (minX + maxX) / 2, (minZ + maxZ) / 2, math.max(maxX - minX, maxZ - minZ) / 2
+end
+
 local function record(node: Instance, label: string)
-	local centre, extent
-	if node:IsA("Model") then
-		local cf, size = node:GetBoundingBox()
-		centre, extent = cf.Position, size
-	elseif node:IsA("BasePart") then
-		centre, extent = node.Position, node.Size
-	else
+	local cx, cz, reach = extentsAbove(node, RUBBLE_LINE)
+	if not cx then
+		cx, cz, reach = extentsAbove(node, -math.huge)
+	end
+	if not cx or not cz or not reach then
 		return
 	end
-	if centre.Z > zNear + 30 or centre.Z < zFar - 30 then
+	if cz > zNear + 30 or cz < zFar - 30 then
 		return
 	end
-	table.insert(obstacles, {
-		name = label,
-		x = centre.X,
-		z = centre.Z,
-		reach = math.max(extent.X, extent.Z) / 2,
-	})
+	table.insert(obstacles, { name = label, x = cx, z = cz, reach = reach })
 end
 
 local chamber = battleground:FindFirstChild(("Chamber%d"):format(CHAMBER))
@@ -164,12 +190,18 @@ if area then
 	line("  (these are cleared automatically by BuildEndTower, not an obstacle)")
 end
 
--- And anything already built here by another tool.
+-- And anything already built here by another tool. EndTower is a FOLDER, not a
+-- Model — GetBoundingBox does not exist on it, which is what crashed this
+-- report the first time it ran against a built tower.
 local endTower = battleground:FindFirstChild("EndTower")
 if endTower then
-	local cf, size = endTower:GetBoundingBox()
+	local cx, cz, reach = extentsAbove(endTower, -math.huge)
 	line("")
-	line(("--- EXISTING EndTower at %d, %d, spans %d x %d ------------"):format(cf.Position.X, cf.Position.Z, size.X, size.Z))
+	if cx then
+		line(("--- EXISTING EndTower at %d, %d, reaching %d --------------"):format(cx, cz, reach))
+	else
+		line("--- EXISTING EndTower (empty) ------------------------------")
+	end
 	line("  (it will be replaced, so it is not counted against you below)")
 end
 
