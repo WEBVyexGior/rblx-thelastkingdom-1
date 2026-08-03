@@ -1,5 +1,27 @@
 # Changelog
 
+## Version 0.12.0 — Area 1's mechanic, and somewhere to land
+
+- **`Server/World/ArrivalService`**: the place had **no SpawnLocation at all** — deleted
+  by hand at some point, most likely, since it is invisible and non-colliding. Roblox's
+  fallback is to drop the character near the world origin, and this map's origin is the
+  middle of the gatehouse arch, so the player spawned standing on the gate every time
+  with nothing in the log to say why. The spawn is now created at boot from the pad's own
+  geometry, so it cannot be deleted again, and the service sweeps the landing box and
+  names anything solid standing in it.
+  (The previous guess — the fallen gatehouse doors — was wrong; `FixArrival` reported
+  `z 8 -> 8`, i.e. it moved nothing. The doors are better placed now regardless.)
+- **`Server/World/BarricadeService`** — Area 1 per `systems/AreaPlan.md`: heavy timber
+  lashed across the portcullis, **three bindings, three cuts each**, `ProximityPrompt`
+  hold-to-cut. Each completed cut is banked and a turn of rope falls away, so breaking
+  off to fight costs at most the 1.6s in progress — never the binding. Solo-first: three
+  bindings, one pair of hands; more players is faster, never *possible*. Cut all three
+  and the timber comes down and `AreaService.clear(1)` raises the gate.
+  Each binding wears a `Highlight` (AlwaysOnTop) so it is findable through the timber,
+  and the barricade carries a beacon counting down the bindings left.
+- **`AreaService`** exposes `passageOf(index)` / `gateModel(index)` so a mechanic can
+  build onto the gate instead of keeping its own copy of the castle's dimensions.
+
 ## Version 0.11.1 — Wayfinding, and two things the first playtest found
 
 The castle's first real playtest failed on one thing, and it was not combat: the

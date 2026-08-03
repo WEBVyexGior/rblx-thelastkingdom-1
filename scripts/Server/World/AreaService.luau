@@ -586,6 +586,25 @@ function AreaService.isCleared(index: number): boolean
 	return cleared[index] == true
 end
 
+--[[
+	The middle of chamber `index`'s doorway, at floor level.
+
+	Public because the per-area mechanics build ON the gate — area 1's barricade
+	is lashed across this one's grille — and the alternative is every mechanic
+	keeping its own copy of the castle's dimensions. One copy, in this file, is
+	already one more than ideal.
+]]
+function AreaService.passageOf(index: number): Vector3
+	return passageCentre(index)
+end
+
+-- The gate's Model, so a mechanic can parent its own parts into it and have
+-- them cleaned up with it.
+function AreaService.gateModel(index: number): Model?
+	local gate = gates[index]
+	return if gate then gate.model else nil
+end
+
 -- Which chamber is this player standing in? nil outside the castle.
 function AreaService.areaOf(player: Player): number?
 	local character = player.Character
