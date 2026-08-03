@@ -1,6 +1,5 @@
 {
   "name": "TheLastKingdom-ForgottenLands",
-  "servePlaceIds": [128067046328959],
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {

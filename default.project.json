@@ -1,6 +1,5 @@
 {
   "name": "TheLastKingdom-KingdomHub",
-  "servePlaceIds": [102328554416065],
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
