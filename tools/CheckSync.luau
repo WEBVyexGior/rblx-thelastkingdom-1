@@ -29,16 +29,25 @@
 	Each entry: where the instance is, and a string that only appears in the
 	CURRENT version of it.
 
-	The path is a LIST of segments, not a dotted string. It has to be: the
-	spec files are named `EnemyBrain.spec`, with a dot IN the name, and a
-	dotted-path parser splits that into "EnemyBrain" then "spec" and reports a
-	perfectly healthy file as missing. That is exactly what the first run of
-	this tool did.
+	TWO RULES, both learned the hard way on this tool's first two runs.
+
+	1. The path is a LIST of segments, not a dotted string. The spec files are
+	   named `EnemyBrain.spec` — a dot IN the name — and a dotted-path parser
+	   splits that into "EnemyBrain" then "spec" and reports a healthy file as
+	   missing.
+
+	2. A needle must be an IDENTIFIER, never prose from a comment. The
+	   ProjectileService needle was first written as "traced, travelling
+	   projectile" while the file says "travelling, traced" — two words the
+	   wrong way round turned a correctly synced file into a STALE report, and
+	   the verdict line then blamed the connection for it. Identifiers cannot
+	   be reworded by accident and cannot be mistyped without failing to
+	   compile, so they tell the truth about what is actually in the file.
 ]]
 local FINGERPRINTS = {
 	{
 		path = { "TestService", "Tests", "EnemyBrain.spec" },
-		needle = "Reposition HOLDS inside the hysteresis band",
+		needle = "isAttacking",
 		why = "the 11 new ranged-AI specs",
 	},
 	{
@@ -48,7 +57,7 @@ local FINGERPRINTS = {
 	},
 	{
 		path = { "ServerScriptService", "Server", "World", "ProjectileService" },
-		needle = "traced, travelling projectile",
+		needle = "STICK_SECONDS",
 		why = "arrows that travel",
 	},
 	{
