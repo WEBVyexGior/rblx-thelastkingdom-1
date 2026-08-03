@@ -26,46 +26,52 @@
 
 --==========================================================================
 --[[
-	Each entry: where the instance should be, and a string that only appears
-	in the CURRENT version of it. Path is dotted from `game`.
+	Each entry: where the instance is, and a string that only appears in the
+	CURRENT version of it.
+
+	The path is a LIST of segments, not a dotted string. It has to be: the
+	spec files are named `EnemyBrain.spec`, with a dot IN the name, and a
+	dotted-path parser splits that into "EnemyBrain" then "spec" and reports a
+	perfectly healthy file as missing. That is exactly what the first run of
+	this tool did.
 ]]
 local FINGERPRINTS = {
 	{
-		path = "TestService.Tests.EnemyBrain.spec",
+		path = { "TestService", "Tests", "EnemyBrain.spec" },
 		needle = "Reposition HOLDS inside the hysteresis band",
 		why = "the 11 new ranged-AI specs",
 	},
 	{
-		path = "ServerScriptService.Server.Domain.AI.EnemyBrain",
+		path = { "ServerScriptService", "Server", "Domain", "AI", "EnemyBrain" },
 		needle = "BACKOFF_HYSTERESIS",
 		why = "the Reposition state",
 	},
 	{
-		path = "ServerScriptService.Server.World.ProjectileService",
-		needle = "ProjectileService",
+		path = { "ServerScriptService", "Server", "World", "ProjectileService" },
+		needle = "traced, travelling projectile",
 		why = "arrows that travel",
 	},
 	{
-		path = "ServerScriptService.Server.World.EnemyAIService",
+		path = { "ServerScriptService", "Server", "World", "EnemyAIService" },
 		needle = "nearestHostile",
 		why = "faction-based targeting",
 	},
 	{
-		path = "ReplicatedStorage.Config.Enemies",
+		path = { "ReplicatedStorage", "Config", "Enemies" },
 		needle = "undead_archer",
 		why = "the undead roster",
 	},
 	{
-		path = "ReplicatedStorage.Config.Difficulty",
+		path = { "ReplicatedStorage", "Config", "Difficulty" },
 		needle = "EnemyDamageMult",
 		why = "the per-area curve",
 	},
 }
 
 --==========================================================================
-local function resolve(path: string): Instance?
+local function resolve(path: { string }): Instance?
 	local node: Instance? = game
-	for segment in string.gmatch(path, "[^%.]+") do
+	for _, segment in ipairs(path) do
 		if not node then
 			return nil
 		end
@@ -87,7 +93,7 @@ local missing, stale, fresh = 0, 0, 0
 
 for _, entry in ipairs(FINGERPRINTS) do
 	local node = resolve(entry.path)
-	local shortName = entry.path:match("[^%.]+$") or entry.path
+	local shortName = entry.path[#entry.path]
 
 	if not node then
 		missing += 1
@@ -157,6 +163,34 @@ end
 
 --==========================================================================
 line("")
+line("--- OPEN EDITOR TABS -----------------------------------------")
+--[[
+	The specific failure this tool was written to name.
+
+	Rojo patches an existing script by writing its `Source`. Studio's script
+	editor holds its own buffer for any script open in a tab, and that buffer
+	WINS — the write lands and is immediately overwritten by what the editor
+	thinks the file says. A brand new file has no tab, so it appears fine, and
+	the result is the confusing signature of "new files sync, edited files do
+	not".
+
+	There is no API to list open tabs, so this cannot be detected directly. It
+	can be INFERRED, and that is worth saying out loud rather than leaving the
+	reader to guess.
+]]
+if fresh > 0 and stale > 0 then
+	line("  Some files updated and others did not. The usual cause is that the")
+	line("  stale ones are OPEN IN A SCRIPT TAB in Studio: the editor's buffer")
+	line("  overwrites what Rojo just wrote. New files have no tab, which is why")
+	line("  they land while edited ones do not.")
+	line("")
+	line("  Close EVERY script tab in Studio, then Disconnect and Connect.")
+else
+	line("  (not the pattern here)")
+end
+
+--==========================================================================
+line("")
 line("--- VERDICT --------------------------------------------------")
 if missing == 0 and stale == 0 then
 	line(("  IN SYNC. All %d checks match the disk."):format(fresh))
@@ -166,8 +200,7 @@ elseif fresh == 0 then
 	line("  Plugins -> Rojo -> Disconnect (if offered), then Connect.")
 else
 	line(("  PARTIAL: %d fresh, %d stale, %d missing."):format(fresh, stale, missing))
-	line("  A partial sync usually means the plugin connected and then dropped")
-	line("  mid-patch. Disconnect, Connect, and run this again.")
+	line("  See OPEN EDITOR TABS above — that is the likely cause.")
 end
 line("")
 line("=========================== END ==============================")
