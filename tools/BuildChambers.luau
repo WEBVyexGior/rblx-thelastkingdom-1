@@ -1705,16 +1705,23 @@ local function place(index: number, radius: number, build: (Vector3, number) -> 
 	return false
 end
 
+--[[
+	What each chamber is called, for the build log.
+
+	The FOLDERS stay Area1..9 — plain, ASCII, and safe to reference from code.
+	These names are for reading, so they are in Greek, in the register a castle
+	would actually have used: `περίβολος` for a ward, `ακρόπυργος` for the keep.
+]]
 local THEMES = {
-	"Outer Ward",
-	"Stables",
-	"Kitchens",
-	"Graveyard",
-	"Smithy",
-	"Great Hall",
-	"The Rows",
-	"Inner Ward",
-	"Keep Steps",
+	"Έξω Περίβολος",
+	"Στάβλοι",
+	"Μαγειρεία",
+	"Κοιμητήριο",
+	"Σιδηρουργείο",
+	"Μεγάλη Αίθουσα",
+	"Τα Σοκάκια",
+	"Έσω Περίβολος",
+	"Σκαλιά του Ακρόπυργου",
 }
 
 for index = 1, CHAMBERS do
