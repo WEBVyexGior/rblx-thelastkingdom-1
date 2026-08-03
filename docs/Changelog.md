@@ -1,5 +1,32 @@
 # Changelog
 
+## Version 0.11.0 — Area gates & the corner HUD
+
+The nine decorated chambers become a **run**: the way forward is shut until the room
+is done, and the player can always see which room that is.
+
+- **World**: `Server/World/AreaService` builds a real portcullis into each of the first
+  eight passages — bars, spikes, ties, guide runners, a threshold sill, and chains that
+  shorten into the masonry as the gate rises. The lift is a ~3s smoothstep with a
+  decaying judder, not a tween of a part sideways. The visible grille is non-colliding;
+  an invisible slab inside it does the stopping, because 2.5-stud bar gaps do not stop a
+  Roblox character.
+- **API**: `clear(index)` / `lock(index)` / `isCleared` / `areaOf(player)` / `resetAll()`.
+  The service owns the gate and the HUD and deliberately **not** the win condition —
+  each area's mechanic calls `clear` when its own puzzle is done.
+- **Client**: `Client/UI/AreaHud` (bottom-left panel: chamber number, English name, one
+  status line; gold rule open, bordeaux shut, a single gold flourish when the gate goes
+  up) driven by `Client/Controllers/AreaController`, which stands down outside the
+  Forgotten Lands.
+- **Contract**: `Net` +`AreaEvent`.
+- **Geometry**: `AreaService` duplicates `tools/BuildBattleground`'s numbers (gap width,
+  springing height, span underside, passage inset, the east/west serpentine). Changing
+  one now requires changing the other.
+
+Nothing calls `clear()` yet — the per-area mechanics land next. `DEV_OPEN_ALL` in
+`AreaService`, or `require(...AreaService).clear(n)` from a **server** command bar,
+walks the castle in the meantime.
+
 ## Version 0.10.0 — Death System
 
 Death = WHAT HAPPENS WHEN YOU FALL. A foundational death/revive loop wired into the mission

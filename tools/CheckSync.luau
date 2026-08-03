@@ -48,7 +48,7 @@ local FINGERPRINTS = {
 	{
 		path = { "TestService", "Tests", "EnemyBrain.spec" },
 		needle = "isAttacking",
-		why = "the 11 new ranged-AI specs",
+		why = "the 10 new ranged-AI specs",
 	},
 	{
 		path = { "ServerScriptService", "Server", "Domain", "AI", "EnemyBrain" },
@@ -74,6 +74,21 @@ local FINGERPRINTS = {
 		path = { "ReplicatedStorage", "Config", "Difficulty" },
 		needle = "EnemyDamageMult",
 		why = "the per-area curve",
+	},
+	{
+		path = { "ServerScriptService", "Server", "World", "AreaService" },
+		needle = "CHAIN_TOP",
+		why = "the portcullis gates",
+	},
+	{
+		path = { "StarterPlayer", "StarterPlayerScripts", "Client", "UI", "AreaHud" },
+		needle = "announceOpen",
+		why = "the corner HUD",
+	},
+	{
+		path = { "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", "AreaController" },
+		needle = "ForgottenLands",
+		why = "the HUD's place guard",
 	},
 }
 

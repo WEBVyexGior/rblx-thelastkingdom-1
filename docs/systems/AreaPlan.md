@@ -24,6 +24,42 @@ Two supporting rules:
 
 ---
 
+## What all nine share — the gate and the corner
+
+*Built. `Server/World/AreaService`, `Client/UI/AreaHud`,
+`Client/Controllers/AreaController`.*
+
+Every chamber already has an arched passage in its cross-wall. A **portcullis**
+now hangs in each of the first eight, down at the start of the run and raised
+when that chamber's work is done. The ninth has no gate: the way out of the
+Keep Steps is the tower.
+
+Why a gate rather than a teleport on completion: a castle you are moved through
+is a corridor, a castle whose doors you open is a place. It also teaches the
+rule for free — walk into shut iron, turn round, find the room still occupied.
+
+- **The gate is one thing; the condition is nine things.** `AreaService` owns
+  the iron and the HUD and nothing else. Each mechanic ends by calling
+  `AreaService.clear(index)`. That is what lets nine unrelated puzzles share one
+  door.
+- **The lift is animated, not switched.** ~3s, smoothstep, with a judder that
+  decays to nothing as it lands, and chains that shorten into the masonry above.
+  Per the standing requirement: weight, not a part sliding.
+- **The visible grille does not collide.** Bars 2.5 studs apart look right and
+  would let a character walk straight through, so an invisible slab rides inside
+  the grille and does the stopping. Art and rule are separate on purpose.
+- **The HUD is bottom-left and nearly silent**: chamber number, its English
+  name, one line of flavour. It moves in exactly three cases — arriving,
+  crossing a wall, and the gate opening. The left rule is gold when the way is
+  open, bordeaux when it is shut.
+
+Geometry is duplicated from `tools/BuildBattleground` (gap 46 wide, springing at
+y 26, masonry over the arch from y 48, passage inset 12 from the curtain,
+alternating east/west). **If the tool's numbers change, `AreaService`'s copy
+must change with them** — nothing else ties the builder to the runtime.
+
+---
+
 ## 1 — Έξω Περίβολος · The introduction
 
 The player must be eased in, not dropped into a fight.

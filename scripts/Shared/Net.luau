@@ -41,6 +41,7 @@ local EVENT_NAMES: { string } = {
 	"ForgeEvent", -- server -> client: the blacksmith's stock, gold and upgrade results
 	"RequestForgeState", -- client -> server: open the forge / refresh it
 	"RequestForgeUpgrade", -- client -> server: buy the next level of one weapon
+	"AreaEvent", -- server -> client: which chamber you are in, and whether its gate is shut
 }
 local FUNCTION_NAMES: { string } = {}
 
