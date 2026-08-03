@@ -714,9 +714,16 @@ local function gatehouse(parent, at: Vector3)
 		for j = 0, 5 do
 			block(model, "Rung", Vector3.new(gh * 2, 0.7, 0.7), CFrame.new(at + Vector3.new(0, 20 + j * 6, 3)), C.iron, M.rusted)
 		end
-		-- The doors themselves, off their hinges and lying in the passage.
-		block(model, "Door", Vector3.new(30, 2.6, 40), CFrame.new(at + Vector3.new(-16, 1.4, -30)) * CFrame.Angles(0, math.rad(14), 0), C.woodDark, M.wood)
-		block(model, "Door", Vector3.new(28, 2.6, 38), CFrame.new(at + Vector3.new(20, 1.4, -46)) * CFrame.Angles(0, math.rad(-24), 0), C.woodDark, M.wood)
+		--[[
+			The doors themselves, off their hinges and lying IN THE PASSAGE —
+			which is the whole point and is not where they used to be. At -30
+			and -46 they lay 30 and 46 studs past the gate, flat across the
+			arrival pad 55 studs in, and the player spawned standing on one.
+			-12 and -14 puts them in the archway, and leaves the pad empty.
+			(tools/FixArrival applies the same move to an existing place.)
+		]]
+		block(model, "Door", Vector3.new(30, 2.6, 40), CFrame.new(at + Vector3.new(-18, 1.4, -12)) * CFrame.Angles(0, math.rad(14), 0), C.woodDark, M.wood)
+		block(model, "Door", Vector3.new(22, 2.6, 30), CFrame.new(at + Vector3.new(20, 1.4, -14)) * CFrame.Angles(0, math.rad(-24), 0), C.woodDark, M.wood)
 	end
 	return model
 end

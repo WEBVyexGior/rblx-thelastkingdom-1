@@ -1,5 +1,30 @@
 # Changelog
 
+## Version 0.11.1 — Wayfinding, and two things the first playtest found
+
+The castle's first real playtest failed on one thing, and it was not combat: the
+player did not know where to walk.
+
+- **Bug (silent, and the cause of most of it)**: `MissionRuntimeService` assigned
+  `objective.def.position` — which configs write as a marker NAME — straight to
+  `Part.Position`, throwing `Vector3 expected, got string` on every objective and
+  leaving Chapter 1 with no waypoint at all. It now goes through `Markers.resolve`,
+  the same call `ObjectiveTrackers` already used.
+- **`Server/World/Beacon`**: a reusable "go here" — a 70-stud neon shaft, two ground
+  rings pulsing outward, rising motes, a point light, and a nameplate that draws
+  THROUGH walls (`AlwaysOnTop`), so it survives a building being in the way. All
+  parts are `CanQuery = false`: a waypoint must never eat an arrow or a sword swing.
+  Objectives label it by kind (`GO HERE` / `SEARCH` / `HOLD HERE` / …).
+- **`AreaService`** lights a `THE WAY ON` beacon in front of a passage the moment its
+  chamber is cleared, and puts it out on `lock`. Deliberately dark while locked — the
+  objective owns the player's eye until it is done.
+- **Bug (arrival)**: the two gatehouse doors were placed 30 and 46 studs *past* the
+  gate, flat across the arrival pad, so the player spawned standing on one. Moved
+  into the archway where "off their hinges in the passage" actually means it.
+  `tools/BuildBattleground` carries the new numbers; **`tools/FixArrival`** applies
+  the same move to an existing place without a rebuild, then sweeps the spawn box
+  and names anything else standing in it.
+
 ## Version 0.11.0 — Area gates & the corner HUD
 
 The nine decorated chambers become a **run**: the way forward is shut until the room

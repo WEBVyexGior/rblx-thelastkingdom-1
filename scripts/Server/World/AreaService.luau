@@ -46,6 +46,7 @@ local Workspace = game:GetService("Workspace")
 
 local Server = script.Parent.Parent
 local GameService = require(Server.Services.GameService)
+local Beacon = require(script.Parent.Beacon)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
@@ -165,6 +166,7 @@ type Gate = {
 	offset: number,
 	open: boolean,
 	token: number,
+	beacon: Beacon.Beacon?, -- lit only once the way is actually open
 }
 
 local gates: { [number]: Gate } = {}
@@ -410,7 +412,32 @@ local function buildGate(index: number, parent: Instance): Gate?
 		offset = 0,
 		open = false,
 		token = 0,
+		beacon = nil,
 	}
+end
+
+--[[
+	Lights (or puts out) the beam over an open passage.
+
+	This is the other half of the first playtest's lesson. The gate went up, the
+	HUD said so, and the player still had no idea which of a 200-stud room's
+	four walls to walk at. So the moment the way is open it gets a beacon
+	standing in front of the arch, on the near side, where it is visible from
+	anywhere in the chamber.
+
+	It is deliberately NOT lit while the chamber is locked: the objective has
+	its own beacon, and two beams competing for the same eye teach nothing.
+]]
+local function setGateBeacon(gate: Gate, lit: boolean)
+	if lit and not gate.beacon then
+		-- Ten studs in FRONT of the wall (the player always arrives from +z),
+		-- so the beam rises in open air instead of inside the masonry.
+		local at = passageCentre(gate.index) + Vector3.new(0, 0, 10)
+		gate.beacon = Beacon.create(at, "THE WAY ON", gate.model)
+	elseif not lit and gate.beacon then
+		gate.beacon:destroy()
+		gate.beacon = nil
+	end
 end
 
 --==========================================================================
@@ -533,6 +560,7 @@ function AreaService.clear(index: number)
 	local gate = gates[index]
 	if gate then
 		animate(gate, true)
+		setGateBeacon(gate, true)
 	end
 	log:info(("area %d cleared — gate rising"):format(index))
 	tellEveryoneIn(index)
@@ -549,6 +577,7 @@ function AreaService.lock(index: number)
 	local gate = gates[index]
 	if gate then
 		animate(gate, false)
+		setGateBeacon(gate, false)
 	end
 	tellEveryoneIn(index)
 end

@@ -22,8 +22,10 @@ local MissionService = require(Server.Services.MissionService)
 local MissionRun = require(Server.Domain.MissionRun)
 local Match = require(Server.Domain.Match)
 local ObjectiveTrackers = require(script.Parent.ObjectiveTrackers)
+local Beacon = require(script.Parent.Beacon)
 local RewardService = require(Server.Services.RewardService)
 local DeathService = require(script.Parent.DeathService)
+local Markers = require(ReplicatedStorage.Shared.World.Markers)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -39,7 +41,7 @@ local missionEvent: RemoteEvent? = nil
 local activeRun: MissionRun.MissionRun? = nil
 local activeMatch: Match.Match? = nil
 local activeStop: (() -> ())? = nil -- the current objective's tracker stop
-local activeMarker: BasePart? = nil -- visible waypoint for the current position objective
+local activeMarker: Beacon.Beacon? = nil -- visible waypoint for the current position objective
 local runPlayers: { Player } = {}
 local onFinishedCb: ((completed: boolean) -> ())? = nil
 local finishing = false -- guards finishRun against re-entrancy (stop -> onFail -> fail -> finishRun)
@@ -59,23 +61,39 @@ local function getRunPlayers(): { Player }
 	return runPlayers
 end
 
--- A plain visible waypoint (DEV scaffolding, not VFX) so players can find a
--- Reach / Interact / Escort objective. Kill objectives show their spawned enemies.
-local function createMarker(position: Vector3): BasePart
-	local part = Instance.new("Part")
-	part.Name = "ObjectiveMarker"
-	part.Anchored = true
-	part.CanCollide = false
-	part.Size = Vector3.new(3, 6, 3)
-	part.Color = Color3.fromRGB(220, 200, 60)
-	part.Position = position
-	part.Parent = Workspace
-	return part
+--[[
+	Lights the waypoint for a Reach / Interact / Escort destination. Kill
+	objectives show their spawned enemies instead.
+
+	`objective.def.position` may be a Vector3 or the NAME of a part in the map
+	("Battleground.Chamber1.Objectives.Centre"). It has to go through
+	`Markers.resolve` — the first version of this assigned the raw config value
+	straight to `Part.Position`, which threw "Vector3 expected, got string" on
+	every named marker and left the player with no waypoint at all for the whole
+	of Chapter 1.
+]]
+-- One word over the beam, so the player knows what the light wants from them
+-- before they get there. Anything unrecognised falls back to the neutral word.
+local MARKER_LABEL = {
+	Reach = "GO HERE",
+	Interact = "SEARCH",
+	Escort = "TAKE THEM HERE",
+	Defend = "HOLD HERE",
+}
+
+local function showMarker(where: any, objectiveType: string?)
+	local position = Markers.resolve(where)
+	if not position then
+		log:warn(("objective marker '%s' could not be resolved — no waypoint shown"):format(tostring(where)))
+		return
+	end
+	local label = (objectiveType and MARKER_LABEL[objectiveType]) or "OBJECTIVE"
+	activeMarker = Beacon.create(position, label, Workspace)
 end
 
 local function clearMarker()
 	if activeMarker then
-		activeMarker:Destroy()
+		activeMarker:destroy()
 		activeMarker = nil
 	end
 end
@@ -164,7 +182,7 @@ local function activateNext()
 	-- Waypoint for position-based objectives (Reach/Interact/Escort destination).
 	clearMarker()
 	if objective.def.position then
-		activeMarker = createMarker(objective.def.position)
+		showMarker(objective.def.position, objective.def.type)
 	end
 
 	fire({
