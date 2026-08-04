@@ -5,13 +5,20 @@
 	"Find the recipe." "Cook five meals."
 
 	--------------------------------------------------------------------------
-	NO PANEL
+	NO PANEL, AND NO OUTLINE EITHER
 
-	Small white letters with a thin black edge, typed out a character at a time,
-	and nothing behind them. The brief was explicit and it is the right call: a
-	box at the top of the screen eats the sky, and the sky is most of what this
-	game has to look at. Subtitles have worked this way forever for the same
-	reason.
+	Small parchment-cream letters typed out a character at a time, and nothing
+	behind them at all. A box at the top of the screen eats the sky, and the sky
+	is most of what this game has to look at.
+
+	The outline the first version had is gone on purpose. This line sits high on
+	screen against sky and haze rather than against lit stone, so it does not
+	need the contrast the area name does — and without an edge it reads as part
+	of the picture instead of as an overlay pinned on top of it.
+
+	Cream, not gold: it is a whisper next to the area name, and a shade LIGHTER
+	so the two never compete. Gold belongs to where you are; this is only what
+	to do.
 
 	The typing is the same effect the NPC dialogue uses, deliberately — it is
 	how this game says "read this" — but with no bubble and no name plate, so it
@@ -68,21 +75,13 @@ function ObjectiveHud.create(): Handle
 	label.BackgroundTransparency = 1
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Top
-	label.TextSize = 17
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextSize = 18
+	label.TextColor3 = Theme.Color.Cream
 	label.TextTransparency = 1
 	label.TextWrapped = true
 	label.Text = ""
 	label.Parent = gui
 	Theme.applyFont(label, Theme.Role.Body)
-
-	local stroke = Instance.new("UIStroke")
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.Color = Color3.fromRGB(0, 0, 0)
-	stroke.Thickness = 2
-	stroke.Transparency = 0.4
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
 
 	--==========================================================================
 	-- Newest live source wins; clearing one falls back to the one under it.
@@ -114,7 +113,6 @@ function ObjectiveHud.create(): Handle
 
 		label.Text = ""
 		label.TextTransparency = 0
-		TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.4 }):Play()
 
 		task.spawn(function()
 			local shown = ""
@@ -133,9 +131,6 @@ function ObjectiveHud.create(): Handle
 		typeToken += 1
 		TweenService:Create(label, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {
 			TextTransparency = 1,
-		}):Play()
-		TweenService:Create(stroke, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {
-			Transparency = 1,
 		}):Play()
 	end
 
