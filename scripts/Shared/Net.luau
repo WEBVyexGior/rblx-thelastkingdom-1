@@ -42,6 +42,7 @@ local EVENT_NAMES: { string } = {
 	"RequestForgeState", -- client -> server: open the forge / refresh it
 	"RequestForgeUpgrade", -- client -> server: buy the next level of one weapon
 	"AreaEvent", -- server -> client: which chamber you are in, and whether its gate is shut
+	"ObjectiveHint", -- server -> client: the one line at the top saying what to do now
 }
 local FUNCTION_NAMES: { string } = {}
 

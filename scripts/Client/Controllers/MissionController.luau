@@ -1,26 +1,65 @@
 --!strict
 --[[
 	MissionController
-	The client half of the mission/objective feed. It receives MissionEvents from the
-	server and shows them the SIMPLEST possible way — prints to the Output. No UI, no
-	VFX: DEV/TEST feedback only. The real diegetic objective HUD is a later (Tier 3)
-	phase built on this same event.
+	The client half of the mission feed.
 
-	Place: client (boots in both places; only the World server ever sends to it).
-	Phase: Missions.
+	Two jobs:
+
+	  1. The ONE LINE at the top of the screen saying what to do now. Any server
+	     system can push to it (`ObjectiveHint`) — the mission does, and so does
+	     whatever mechanic the current area is running.
+
+	  2. Printing the rest of the MissionEvent feed to the Output. That is still
+	     DEV/TEST feedback: mission start, narrative, rewards and progress have
+	     no screen presence yet and are not meant to until the story pass.
+
+	The HUD is created LAZILY, on the first hint that arrives. This controller
+	boots in both places and only the Forgotten Lands server ever sends one, so
+	the Hub never builds a ScreenGui it would not use — and no place check has to
+	be kept in sync with anything.
+
+	Place: client (boots in both places). Phase: Missions.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local ObjectiveHud = require(script.Parent.Parent.UI.ObjectiveHud)
 
 local MissionController = {}
 
 MissionController.Name = "MissionController"
 
+local hud: ObjectiveHud.Handle? = nil
+
+local function ensureHud(): ObjectiveHud.Handle
+	local existing = hud
+	if existing then
+		return existing
+	end
+	local created = ObjectiveHud.create()
+	hud = created
+	return created
+end
+
 function MissionController.Init() end
 
 function MissionController.Start()
+	--------------------------------------------------------------------------
+	-- What to do now
+	--------------------------------------------------------------------------
+	Net.getEvent("ObjectiveHint").OnClientEvent:Connect(function(payload)
+		if typeof(payload) ~= "table" then
+			return
+		end
+		local source = tostring(payload.source or "mission")
+		local text = if typeof(payload.text) == "string" then payload.text else nil
+		ensureHud().set(source, text)
+	end)
+
+	--------------------------------------------------------------------------
+	-- Everything else, to the Output
+	--------------------------------------------------------------------------
 	local missionEvent = Net.getEvent("MissionEvent")
 	missionEvent.OnClientEvent:Connect(function(payload)
 		if typeof(payload) ~= "table" then

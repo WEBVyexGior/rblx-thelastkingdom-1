@@ -15,17 +15,14 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 
 local Server = script.Parent.Parent
 local MissionService = require(Server.Services.MissionService)
 local MissionRun = require(Server.Domain.MissionRun)
 local Match = require(Server.Domain.Match)
 local ObjectiveTrackers = require(script.Parent.ObjectiveTrackers)
-local Beacon = require(script.Parent.Beacon)
 local RewardService = require(Server.Services.RewardService)
 local DeathService = require(script.Parent.DeathService)
-local Markers = require(ReplicatedStorage.Shared.World.Markers)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -36,12 +33,12 @@ MissionRuntimeService.Name = "MissionRuntimeService"
 local log = Logger.new("MissionRuntimeService")
 
 local missionEvent: RemoteEvent? = nil
+local hintEvent: RemoteEvent? = nil
 
 -- Single active run.
 local activeRun: MissionRun.MissionRun? = nil
 local activeMatch: Match.Match? = nil
 local activeStop: (() -> ())? = nil -- the current objective's tracker stop
-local activeMarker: Beacon.Beacon? = nil -- visible waypoint for the current position objective
 local runPlayers: { Player } = {}
 local onFinishedCb: ((completed: boolean) -> ())? = nil
 local finishing = false -- guards finishRun against re-entrancy (stop -> onFail -> fail -> finishRun)
@@ -62,39 +59,22 @@ local function getRunPlayers(): { Player }
 end
 
 --[[
-	Lights the waypoint for a Reach / Interact / Escort destination. Kill
-	objectives show their spawned enemies instead.
+	The hint line at the top of the screen: one short sentence saying what to do
+	now. Replaces the world waypoint entirely.
 
-	`objective.def.position` may be a Vector3 or the NAME of a part in the map
-	("Battleground.Chamber1.Objectives.Centre"). It has to go through
-	`Markers.resolve` — the first version of this assigned the raw config value
-	straight to `Part.Position`, which threw "Vector3 expected, got string" on
-	every named marker and left the player with no waypoint at all for the whole
-	of Chapter 1.
+	THERE ARE NO "GO HERE" BEAMS. A pillar of light over the objective is the
+	fastest way to make a castle feel like a checklist — the player stops
+	looking at the building and starts looking at the marker. The area tells you
+	where you are (bottom left), this tells you what it wants (top), and the
+	world itself has to be legible enough to do the rest. That is a higher bar
+	for the level and the right one.
 ]]
--- One word over the beam, so the player knows what the light wants from them
--- before they get there. Anything unrecognised falls back to the neutral word.
-local MARKER_LABEL = {
-	Reach = "GO HERE",
-	Interact = "SEARCH",
-	Escort = "TAKE THEM HERE",
-	Defend = "HOLD HERE",
-}
-
-local function showMarker(where: any, objectiveType: string?)
-	local position = Markers.resolve(where)
-	if not position then
-		log:warn(("objective marker '%s' could not be resolved — no waypoint shown"):format(tostring(where)))
+local function sayHint(text: string?)
+	if not hintEvent then
 		return
 	end
-	local label = (objectiveType and MARKER_LABEL[objectiveType]) or "OBJECTIVE"
-	activeMarker = Beacon.create(position, label, Workspace)
-end
-
-local function clearMarker()
-	if activeMarker then
-		activeMarker:destroy()
-		activeMarker = nil
+	for _, player in runPlayers do
+		hintEvent:FireClient(player, { source = "mission", text = text })
 	end
 end
 
@@ -132,7 +112,7 @@ local function finishRun(completed: boolean)
 	end
 	finishing = true
 	stopTracker()
-	clearMarker()
+	sayHint(nil)
 	DeathService.endRun()
 	local match = activeMatch
 	if match then
@@ -179,11 +159,10 @@ local function activateNext()
 		return
 	end
 
-	-- Waypoint for position-based objectives (Reach/Interact/Escort destination).
-	clearMarker()
-	if objective.def.position then
-		showMarker(objective.def.position, objective.def.type)
-	end
+	-- What to do now, at the top of the screen. `hint` is the short imperative
+	-- written for the player; `description` is the long form kept for the log
+	-- and for anywhere a full sentence is wanted.
+	sayHint(objective.def.hint or objective.def.description)
 
 	fire({
 		kind = "objectiveActive",
@@ -196,7 +175,6 @@ local function activateNext()
 
 	local function onObjectiveDone()
 		stopTracker()
-		clearMarker()
 		fire({ kind = "objectiveComplete", missionId = run.missionId, objectiveId = objective.id })
 		if objective.def.completionText then
 			fire({
@@ -309,6 +287,7 @@ function MissionRuntimeService.Init() end
 
 function MissionRuntimeService.Start()
 	missionEvent = Net.getEvent("MissionEvent")
+	hintEvent = Net.getEvent("ObjectiveHint")
 	log:info("ready")
 end
 

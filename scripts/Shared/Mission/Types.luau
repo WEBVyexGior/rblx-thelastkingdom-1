@@ -23,7 +23,8 @@ export type EnemySpawn = {
 export type ObjectiveDef = {
 	id: string,
 	type: string, -- Mission.Enums.ObjectiveType
-	description: string, -- placeholder text shown when the objective is active
+	description: string, -- the long form: log, and anywhere a full sentence is wanted
+	hint: string?, -- the short imperative the PLAYER reads at the top of the screen
 	completionText: string?, -- optional placeholder text on completion (e.g. lore)
 	target: number?, -- Kill = count; Survive/Defend = seconds; default 1
 	position: Vector3?, -- Reach / Escort destination / Interact / Defend spot

@@ -26,9 +26,16 @@ local Missions = {
 			xp = 120,
 		},
 		objectives = {
+			--[[
+				`hint` is the line the PLAYER reads, at the top of the screen:
+				short, imperative, no punctuation it does not need, and never a
+				[PLACEHOLDER] tag. `description` stays the long form for the log
+				and for anywhere a full sentence is wanted.
+			]]
 			{
 				id = "reach_lore",
 				type = "Reach",
+				hint = "Search the outer ward",
 				description = "[PLACEHOLDER] Explore ahead — reach the survivor's marker.",
 				completionText = "[PLACEHOLDER LORE] A survivor's marker. Something terrible passed through here.",
 				-- Named, not coordinates: drag the marker in Studio and the
@@ -40,6 +47,7 @@ local Missions = {
 			{
 				id = "reach_site",
 				type = "Reach",
+				hint = "Press on through the stables",
 				description = "[PLACEHOLDER] Press on to the ruined site.",
 				position = "Battleground.Chamber2.Objectives.Centre",
 				radius = 14,
@@ -47,6 +55,7 @@ local Missions = {
 			{
 				id = "clear_undead",
 				type = "Clear",
+				hint = "Kill everything that comes",
 				description = "[PLACEHOLDER] Clear the undead ambush.",
 				encounterId = "chapter_one_ambush",
 				eliteEnemyId = "undead_brute",

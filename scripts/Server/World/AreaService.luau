@@ -46,7 +46,6 @@ local Workspace = game:GetService("Workspace")
 
 local Server = script.Parent.Parent
 local GameService = require(Server.Services.GameService)
-local Beacon = require(script.Parent.Beacon)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
@@ -166,12 +165,26 @@ type Gate = {
 	offset: number,
 	open: boolean,
 	token: number,
-	beacon: Beacon.Beacon?, -- lit only once the way is actually open
 }
 
 local gates: { [number]: Gate } = {}
 local cleared: { [number]: boolean } = {}
 local lastArea: { [number]: number } = {} -- keyed by UserId
+
+--[[
+	THE INVISIBLE BARRIER.
+
+	Every area's content starts when a player first walks into it — the waves,
+	the mechanic, the lot. There is no trigger part: the position poll below
+	already knows the moment somebody crosses a wall, and reading a position
+	catches a player who spawns past the line, is put down by a checkpoint, or
+	clips the corner at speed. A Touched volume misses all three.
+
+	Fires ONCE per area per run. "Walking back in restarts the wave" is not a
+	mechanic, it is an exploit.
+]]
+local entered: { [number]: boolean } = {}
+local enterHandlers: { [number]: { (Player) -> () } } = {}
 
 local areaEvent: RemoteEvent? = nil
 
@@ -412,32 +425,7 @@ local function buildGate(index: number, parent: Instance): Gate?
 		offset = 0,
 		open = false,
 		token = 0,
-		beacon = nil,
 	}
-end
-
---[[
-	Lights (or puts out) the beam over an open passage.
-
-	This is the other half of the first playtest's lesson. The gate went up, the
-	HUD said so, and the player still had no idea which of a 200-stud room's
-	four walls to walk at. So the moment the way is open it gets a beacon
-	standing in front of the arch, on the near side, where it is visible from
-	anywhere in the chamber.
-
-	It is deliberately NOT lit while the chamber is locked: the objective has
-	its own beacon, and two beams competing for the same eye teach nothing.
-]]
-local function setGateBeacon(gate: Gate, lit: boolean)
-	if lit and not gate.beacon then
-		-- Ten studs in FRONT of the wall (the player always arrives from +z),
-		-- so the beam rises in open air instead of inside the masonry.
-		local at = passageCentre(gate.index) + Vector3.new(0, 0, 10)
-		gate.beacon = Beacon.create(at, "THE WAY ON", gate.model)
-	elseif not lit and gate.beacon then
-		gate.beacon:destroy()
-		gate.beacon = nil
-	end
 end
 
 --==========================================================================
@@ -560,7 +548,6 @@ function AreaService.clear(index: number)
 	local gate = gates[index]
 	if gate then
 		animate(gate, true)
-		setGateBeacon(gate, true)
 	end
 	log:info(("area %d cleared — gate rising"):format(index))
 	tellEveryoneIn(index)
@@ -577,7 +564,6 @@ function AreaService.lock(index: number)
 	local gate = gates[index]
 	if gate then
 		animate(gate, false)
-		setGateBeacon(gate, false)
 	end
 	tellEveryoneIn(index)
 end
@@ -605,6 +591,63 @@ function AreaService.gateModel(index: number): Model?
 	return if gate then gate.model else nil
 end
 
+--[[
+	Call `fn` the first time any player walks into chamber `index`.
+
+	This is how an area's content starts — its waves, its mechanic, its
+	instruction at the top of the screen. Register in Start; the poll does the
+	rest.
+
+	If the area has ALREADY been entered by the time you register (a mechanic
+	that boots late, a system added mid-run), `fn` runs immediately with the
+	nearest player rather than never running at all. Silently doing nothing is
+	the failure mode that costs a playtest to find.
+]]
+function AreaService.onEnter(index: number, fn: (Player) -> ())
+	local list = enterHandlers[index]
+	if not list then
+		list = {}
+		enterHandlers[index] = list
+	end
+	table.insert(list, fn)
+
+	if entered[index] then
+		for _, player in Players:GetPlayers() do
+			if lastArea[player.UserId] == index then
+				task.spawn(fn, player)
+				return
+			end
+		end
+	end
+end
+
+function AreaService.hasEntered(index: number): boolean
+	return entered[index] == true
+end
+
+local function fireEntered(index: number, player: Player)
+	if entered[index] then
+		return
+	end
+	entered[index] = true
+
+	local list = enterHandlers[index]
+	if not list then
+		return
+	end
+	log:info(("area %d entered by %s"):format(index, player.Name))
+	for _, fn in list do
+		-- Spawned, so one mechanic erroring cannot stop the others from
+		-- starting. An area that half-starts is worse than one that logs.
+		task.spawn(function()
+			local ok, err = pcall(fn, player)
+			if not ok then
+				log:warn(("area %d enter handler failed: %s"):format(index, tostring(err)))
+			end
+		end)
+	end
+end
+
 -- Which chamber is this player standing in? nil outside the castle.
 function AreaService.areaOf(player: Player): number?
 	local character = player.Character
@@ -615,10 +658,12 @@ function AreaService.areaOf(player: Player): number?
 	return areaAt(root.Position)
 end
 
--- Puts every gate back down. Called at the start of a run.
+-- Puts every gate back down and forgets which rooms have been visited, so the
+-- next run's areas start their content again. Called at the start of a run.
 function AreaService.resetAll()
 	for index = 1, CHAMBERS do
 		AreaService.lock(index)
+		entered[index] = nil
 	end
 end
 
@@ -684,6 +729,9 @@ function AreaService.Start()
 			if lastArea[key] ~= index then
 				lastArea[key] = index
 				tell(player, index)
+				if index then
+					fireEntered(index, player)
+				end
 			end
 		end
 	end)

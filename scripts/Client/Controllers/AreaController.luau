@@ -49,12 +49,10 @@ function AreaController.Start()
 			return
 		end
 		if payload.kind == "area" and typeof(payload.index) == "number" then
-			hud.show(
-				payload.index,
-				tostring(payload.label),
-				tostring(payload.subtitle),
-				payload.locked == true
-			)
+			-- The name and nothing else. `locked` and `subtitle` still arrive
+			-- and are still ignored here: the gate says whether it is shut by
+			-- being shut, which is a better teacher than a caption.
+			hud.show(payload.index, tostring(payload.label))
 		else
 			-- "outside": the approach, the moat, the spawn pad.
 			hud.hide()

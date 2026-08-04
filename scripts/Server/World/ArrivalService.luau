@@ -30,9 +30,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local Server = script.Parent.Parent
-local GameService = require(Server.Services.GameService)
-local Constants = require(ReplicatedStorage.Shared.Constants)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
 local ArrivalService = {}
@@ -119,11 +116,19 @@ local function sweep(centre: Vector3, ignore: Instance)
 end
 
 --==========================================================================
-function ArrivalService.Init()
-	if GameService.getPlaceRole() ~= Constants.PlaceRole.World then
-		return
-	end
+--[[
+	NO PLACE-ROLE CHECK HERE, and that is deliberate.
 
+	The first version asked `GameService.getPlaceRole()` and returned early. The
+	Loader runs Init on every module in ALPHABETICAL order, so ArrivalService
+	asked before GameService had answered, got "Unknown", and quietly did
+	nothing — which is why the log had no line from this service at all and the
+	player carried on spawning inside the gatehouse.
+
+	It does not need the check anyway: `Server/World` only syncs into the
+	Forgotten Lands project, so this file existing IS the place check.
+]]
+function ArrivalService.Init()
 	local gameplay = Workspace:FindFirstChild("Gameplay")
 	local battleground = gameplay and gameplay:FindFirstChild("Battleground")
 

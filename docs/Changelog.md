@@ -1,5 +1,36 @@
 # Changelog
 
+## Version 0.13.0 — The HUD gets quiet, the world gets loud
+
+Playtest feedback, applied. The screen was shouting and the props were greyboxes.
+
+- **Bug**: `ArrivalService` asked `GameService.getPlaceRole()` in **Init**, and the Loader
+  runs Init alphabetically — so it asked before GameService had answered, got `Unknown`,
+  and did nothing. No log line, and the player kept spawning inside the gatehouse. The
+  check is gone: `Server/World` only syncs into the Forgotten Lands, so the file existing
+  IS the place check.
+- **No more waypoint beams.** `Server/World/Beacon` is deleted. A pillar of light over
+  the objective turns a castle into a checklist, and the gold read as neon. The area name
+  says where you are, one line at the top says what to do, and the world has to carry the
+  rest.
+- **`AreaHud` v2** — bottom left, bare screen: white name, 2px black outline, nothing
+  else. No panel, no status, no "locked". Two labels swap so a room's name can leave while
+  the next arrives, with a hairline rule sweeping under it.
+- **`Client/UI/ObjectiveHud`** (new) — one small white line at the top, typed a character
+  at a time, no panel behind it. Sources push and clear by name and the newest live one
+  shows, so an area mechanic can take the line and the mission's line comes back when it
+  finishes. `Net` +`ObjectiveHint`; objective defs gain a short `hint`.
+- **`AreaService.onEnter(index, fn)`** — the invisible barrier. An area's content starts
+  when a player first walks into it, once per run. No trigger part: the position poll
+  already knows, and it catches players who spawn past a line, are put down by a
+  checkpoint, or clip a corner at speed.
+- **The barricade is built like a barricade.** Rope is now turns of cord passing right
+  around the beam — eight tangent segments per turn, jittered, nine turns per lashing,
+  falling three at a time as it is cut — with frayed tails and an eight-segment iron ring.
+  Boards get a facing plank, six nails each and a split end. The lashing's height is
+  DERIVED from its board instead of hand-written; the first version had one wrapping thin
+  air a stud above the plank it was holding. The highlight is a pale warm edge, not gold.
+
 ## Version 0.12.0 — Area 1's mechanic, and somewhere to land
 
 - **`Server/World/ArrivalService`**: the place had **no SpawnLocation at all** — deleted
