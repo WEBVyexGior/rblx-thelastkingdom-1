@@ -27,15 +27,20 @@ local Missions = {
 		},
 		objectives = {
 			--[[
-				`hint` is the line the PLAYER reads, at the top of the screen:
-				short, imperative, no punctuation it does not need, and never a
-				[PLACEHOLDER] tag. `description` stays the long form for the log
-				and for anywhere a full sentence is wanted.
+				`hint` is the line the PLAYER reads, at the top of the screen.
+
+				PLAIN WORDS. Three or four of them, the ones a twelve-year-old
+				uses. "Look around", not "Search the outer ward"; "Kill them
+				all", not "Clear the undead ambush". The story can be written
+				however it likes — the instruction is a road sign, and a road
+				sign nobody parses instantly has failed.
+
+				`description` keeps the long form for the log.
 			]]
 			{
 				id = "reach_lore",
 				type = "Reach",
-				hint = "Search the outer ward",
+				hint = "Look around",
 				description = "[PLACEHOLDER] Explore ahead — reach the survivor's marker.",
 				completionText = "[PLACEHOLDER LORE] A survivor's marker. Something terrible passed through here.",
 				-- Named, not coordinates: drag the marker in Studio and the
@@ -47,7 +52,7 @@ local Missions = {
 			{
 				id = "reach_site",
 				type = "Reach",
-				hint = "Press on through the stables",
+				hint = "Keep going",
 				description = "[PLACEHOLDER] Press on to the ruined site.",
 				position = "Battleground.Chamber2.Objectives.Centre",
 				radius = 14,
@@ -55,7 +60,7 @@ local Missions = {
 			{
 				id = "clear_undead",
 				type = "Clear",
-				hint = "Kill everything that comes",
+				hint = "Kill them all",
 				description = "[PLACEHOLDER] Clear the undead ambush.",
 				encounterId = "chapter_one_ambush",
 				eliteEnemyId = "undead_brute",

@@ -450,7 +450,7 @@ local function buildLashing(parent: Instance, centre: Vector3, spec: { x: number
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Cut"
 	prompt.ActionText = "Cut"
-	prompt.ObjectText = "Lashing"
+	prompt.ObjectText = "Rope"
 	prompt.HoldDuration = HOLD_SECONDS
 	prompt.MaxActivationDistance = REACH
 	prompt.RequiresLineOfSight = false
@@ -476,13 +476,19 @@ local function hint(text: string?)
 	hintEvent:FireAllClients({ source = "area", text = text })
 end
 
+--[[
+	PLAIN WORDS on screen. The code calls these lashings because that is what
+	they are; the player is told "ropes", because that is what they look like
+	and nobody has to stop and work out what a lashing is. Every instruction in
+	this game is three or four ordinary words.
+]]
 local function hintForRemaining()
 	if remaining <= 0 then
 		hint(nil)
 	elseif remaining == 1 then
-		hint("Cut the last lashing")
+		hint("Cut the last rope")
 	else
-		hint(("Cut the barricade  —  %d lashings left"):format(remaining))
+		hint(("Cut the ropes  —  %d left"):format(remaining))
 	end
 end
 
