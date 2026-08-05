@@ -81,7 +81,6 @@ local LANES = 4
 --==========================================================================
 local FENCE_H = 5
 local BARRIER_TOP = 26 -- no jumping over, no standing on
-local FENCE_OFFSET = MAIN_W / 2 + 2.5
 local FENCE_SEGMENT = 10
 
 -- Where the fence is allowed to stop: a gap every so often so the road is a
@@ -128,13 +127,33 @@ if not battleground then
 end
 
 --[[
-	The old road goes FIRST, before anything is measured. It is the one thing
-	being replaced, and leaving it in would have every cell it occupies read as
-	blocked — the new road would then carefully route around the old one.
+	The old road is ARCHIVED, not destroyed.
+
+	Destroy() locks an instance's Parent forever, and Studio's undo cannot put
+	back what it cannot re-parent. Press Ctrl+Z after a tool that destroys, and
+	undo removes the NEW work (which it can) and fails to restore the OLD
+	(which it cannot) — the log fills with "The Parent property of X is locked"
+	and you are left with neither. That has happened once already.
+
+	So it moves to ServerStorage under a numbered name. Out of the way, out of
+	the occupancy grid, and still there if this build turns out worse than the
+	last one.
 ]]
+local ServerStorage = game:GetService("ServerStorage")
+
+local archive = ServerStorage:FindFirstChild("OldPaths")
+if not archive then
+	archive = Instance.new("Folder")
+	archive.Name = "OldPaths"
+	archive.Parent = ServerStorage
+end
+
+local archived = 0
 for _, child in ipairs(battleground:GetChildren()) do
 	if child.Name == "Path" then
-		child:Destroy()
+		archived += 1
+		child.Name = ("Path_%d_%d"):format(#archive:GetChildren() + 1, os.time() % 100000)
+		child.Parent = archive
 	end
 end
 
@@ -197,7 +216,13 @@ end
 ]]
 local solids: { { min: Vector3, max: Vector3 } } = {}
 for _, d in ipairs(workspace:GetDescendants()) do
-	if d:IsA("BasePart") and d.CanCollide and not d:IsDescendantOf(pathRoot) then
+	--[[
+		Terrain is explicitly out. It IS a BasePart, it IS collidable, and its
+		bounding box is the whole world — include it and every cell in every
+		chamber reads as blocked, A* finds no route anywhere, and the tool
+		quietly builds nothing at all.
+	]]
+	if d:IsA("BasePart") and d ~= workspace.Terrain and d.CanCollide and not d:IsDescendantOf(archive) then
 		local a, b = span(d)
 		-- Ignore the ground itself and anything buried: a flagstone or a floor
 		-- slab is not an obstacle, a wall is.
@@ -696,9 +721,30 @@ end
 print("")
 print("========================= BUILD PATHS ========================")
 print(("  %d solid parts standing in the castle"):format(#solids))
+if archived > 0 then
+	print(("  archived %d old Path folder(s) to ServerStorage.OldPaths"):format(archived))
+end
 print("")
 
-local roadsByChamber: { [number]: { Vector3 } } = {}
+--[[
+	This tool built nothing once and there was no way to tell why, because it
+	only reported what it made. So it now reports what it FOUND: how much of
+	each room the grid thinks is walkable, whether the bends were placeable,
+	and whether each leg actually routed. A run that produces no road now says
+	which of those failed.
+]]
+local function freeCells(grid: Grid): (number, number)
+	local free, total = 0, 0
+	for c = 1, grid.cols do
+		for r = 1, grid.rows do
+			total += 1
+			if not grid.blocked[c][r] then
+				free += 1
+			end
+		end
+	end
+	return free, total
+end
 
 for index = 1, CHAMBERS do
 	local zNear = Z_START - (index - 1) * CHAMBER_D
@@ -713,11 +759,14 @@ for index = 1, CHAMBERS do
 	carve(grid, entry, 16)
 	carve(grid, exitAt, 16)
 
+	local free, cells = freeCells(grid)
+
 	--------------------------------------------------------------------------
 	-- The main road: entry -> bend -> bend -> bend -> exit
 	--------------------------------------------------------------------------
+	local placed = bends(grid, entry, exitAt)
 	local stops = { entry }
-	for _, bend in ipairs(bends(grid, entry, exitAt)) do
+	for _, bend in ipairs(placed) do
 		table.insert(stops, bend)
 	end
 	table.insert(stops, exitAt)
@@ -742,7 +791,22 @@ for index = 1, CHAMBERS do
 	end
 
 	local road = simplify(full)
-	roadsByChamber[index] = road
+
+	print(("  Area %d   grid %d/%d cells walkable   %d/3 bends placed   %d/%d legs routed"):format(
+		index,
+		free,
+		cells,
+		#placed,
+		(#stops - 1) - failed,
+		#stops - 1
+	))
+
+	if #road < 2 then
+		warn(("  Area %d: NO ROAD BUILT. Nothing routed and no bends were placeable."):format(index))
+		warn("    Either the room reads as full (raise CELL, lower CLEARANCE) or the")
+		warn("    entry/exit carve is not reaching open ground.")
+		continue
+	end
 
 	local walked = 0
 	for i = 1, #road - 1 do
@@ -824,12 +888,10 @@ for index = 1, CHAMBERS do
 	end
 
 	--------------------------------------------------------------------------
-	print(("  Area %d   %d bends   %.0f studs of road   %.0f of branch%s"):format(
-		index,
+	print(("            %d corners   %.0f studs of road   %.0f of branch"):format(
 		#road,
 		walked,
-		branchLength,
-		if failed > 0 then ("   (%d leg(s) had no route)"):format(failed) else ""
+		branchLength
 	))
 end
 

@@ -337,15 +337,29 @@ local function suppliedModel(weaponId: string): (Model?, BasePart?)
 		return nil, nil
 	end
 
-	-- Nothing on a held weapon may collide, be queried, or weigh anything: it
-	-- would push the player around, eat their own sword swing, and slow them.
 	for _, d in clone:GetDescendants() do
 		if d:IsA("BasePart") then
+			-- Nothing on a held weapon may collide, be queried, or weigh
+			-- anything: it would push the player around, eat their own sword
+			-- swing, and slow them down.
 			d.CanCollide = false
 			d.CanQuery = false
 			d.CanTouch = false
 			d.Massless = true
 			d.Anchored = false
+		elseif d:IsA("LuaSourceContainer") then
+			--[[
+				SCRIPTS COME OUT. A toolbox model is somebody else's code, and
+				this one gets cloned into a live character on the SERVER on
+				every spawn — the most privileged place it could possibly run.
+				ScriptGuardService sweeps the Workspace and would never see a
+				script sitting in ServerStorage waiting to be copied in.
+
+				A weapon is geometry. It does not need a script, and one that
+				has one is not getting it.
+			]]
+			log:warn(("stripped a %s from weapon model '%s'"):format(d.ClassName, weaponId))
+			d:Destroy()
 		end
 	end
 
