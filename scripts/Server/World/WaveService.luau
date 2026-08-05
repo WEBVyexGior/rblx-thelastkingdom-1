@@ -34,6 +34,7 @@ local log = Logger.new("WaveService")
 
 export type Context = {
 	playerCount: number?, -- party size for scaling (default: live player count)
+	areaIndex: number?, -- which chamber this is, for the DEPTH curve (optional)
 	eliteEnemyId: string?, -- substitute for scaled-in extra units (optional)
 	onWaveStart: ((waveIndex: number, totalWaves: number) -> ())?,
 	onProgress: ((killed: number, total: number) -> ())?,
@@ -49,7 +50,16 @@ function WaveService.startEncounter(encounterId: string, ctx: Context): () -> ()
 	assert(def, "Unknown encounter: " .. tostring(encounterId))
 
 	local playerCount = ctx.playerCount or #Players:GetPlayers()
+
+	--[[
+		Both curves, multiplied. Party size decides how much the room can chew
+		through; depth decides what the castle is willing to send. An encounter
+		with no `areaIndex` gets the party curve alone, exactly as before.
+	]]
 	local scale = Scaling.forPlayers(playerCount)
+	if ctx.areaIndex then
+		scale = Scaling.combine(scale, Scaling.forArea(ctx.areaIndex))
+	end
 	local doScale = def.scaled ~= false
 	local restSeconds = def.restBetweenWaves or Config.get("Waves").Defaults.RestBetweenWavesSeconds or 2
 

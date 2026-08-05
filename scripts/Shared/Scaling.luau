@@ -56,4 +56,40 @@ function Scaling.forPlayers(playerCount: number): Params
 	}
 end
 
+--[[
+	Scaling params for DEPTH: how much harder the castle gets as you go in.
+
+	The second of the two curves in `configs/Difficulty`, and the one that had
+	been sitting there written and unread. Area 5 is the spike; see the comment
+	over the Areas table for the shape and why it is that shape.
+]]
+function Scaling.forArea(areaIndex: number): Params
+	local difficulty = Config.get("Difficulty")
+	local entry = difficulty.Areas and difficulty.Areas[areaIndex]
+	if not entry then
+		return DEFAULT
+	end
+	return {
+		enemyCountMult = entry.EnemyCountMult or 1,
+		enemyHealthMult = entry.EnemyHealthMult or 1,
+		eliteWeight = 0, -- depth does not add elites; party size does
+		rewardMult = 1,
+	}
+end
+
+--[[
+	The two curves multiplied, which is the whole point of them being separate:
+	party size says how much the room can chew through, depth says what the
+	castle is willing to send, and a solo player deep in and a full party near
+	the door should both be working hard.
+]]
+function Scaling.combine(a: Params, b: Params): Params
+	return {
+		enemyCountMult = a.enemyCountMult * b.enemyCountMult,
+		enemyHealthMult = a.enemyHealthMult * b.enemyHealthMult,
+		eliteWeight = math.max(a.eliteWeight, b.eliteWeight),
+		rewardMult = a.rewardMult * b.rewardMult,
+	}
+end
+
 return Scaling

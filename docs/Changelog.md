@@ -1,5 +1,35 @@
 # Changelog
 
+## Version 0.15.0 — The dead, in every room
+
+Areas 1 and 2 both played correctly and both played wrong: you cut three ropes, found
+a handle, wound a winch, and nothing ever came. Every line written into those mechanics
+— progress is kept when you break off, the winch slips while you fight — assumes there
+is something to break off *for*.
+
+- **`Server/World/AreaWaveService`**: walk into a chamber, that chamber's encounter
+  starts (after a 3s breath). The waves are **pressure, not the lock** — clearing them
+  opens nothing, the room's own puzzle does, and you may leave the moment it is done.
+  Entering chamber N stops chamber N−2's encounter and despawns its stragglers, so the
+  thing chasing you through a doorway keeps chasing you and the thing three rooms back
+  does not.
+- **`configs/Encounters`** +`area_1` … `area_8`: 3–5 waves each, obeying
+  `Difficulty.Areas[n].Unlocks` as the single source of truth for which enemies exist
+  yet — shamblers alone in the Outer Ward, runners from the Stables, the heavy at the
+  Graveyard turn, spearmen and archers at the Smithy spike. Counts are the BASE for one
+  player; the curves do the ramp.
+- **The depth curve is finally read.** `Scaling.forArea(index)` + `Scaling.combine`, and
+  `WaveService.Context.areaIndex`. `Difficulty.Areas` has been sitting in the config
+  written and unused since 0.8.0 — party size and depth now multiply, which is the whole
+  reason they are two tables.
+- Chamber 9 is deliberately absent: the King is not a wave table.
+
+**Known**: `Difficulty.Areas[n].EnemyDamageMult` is still applied nowhere — count and
+health scale with depth, damage does not. It needs `EnemyService.spawn` to carry a
+damage multiplier the way it already carries a health one. **Also**: the Chapter 1
+mission's `chapter_one_ambush` still fires in chamber 2 on top of `area_2`, so that room
+currently gets both.
+
 ## Version 0.14.0 — Area 2's winch
 
 - **`Server/World/WinchService`**: the portcullis out of the Stables is down and the
