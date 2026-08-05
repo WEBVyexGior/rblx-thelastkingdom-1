@@ -414,11 +414,14 @@ local function buildLashing(parent: Instance, centre: Vector3, spec: { x: number
 	buildTail(model, at + Vector3.new(spread, -ry + 0.2, rz), PALETTE.rope)
 
 	--[[
-		Glows through the timber so it is findable, and quietly. The first
-		version of this game's wayfinding was a pillar of gold light and the
-		note back was that it was far too loud — so this is a pale warm edge and
-		almost no fill, which says "you can touch this" without saying anything
-		else.
+		A pale warm edge, and OCCLUDED.
+
+		Two notes from playtests are in this one instance. It used to be a
+		pillar of gold light, which was far too loud — so it is a faint outline
+		and almost no fill, saying "you can touch this" and nothing else. And it
+		used to draw THROUGH walls, which told the player where everything was
+		from the doorway and took the searching out of the game. Now you have to
+		be able to see the thing before the thing lights up.
 	]]
 	local glow = Instance.new("Highlight")
 	glow.Name = "Glow"
@@ -426,7 +429,7 @@ local function buildLashing(parent: Instance, centre: Vector3, spec: { x: number
 	glow.FillTransparency = 0.93
 	glow.OutlineColor = Color3.fromRGB(238, 226, 198)
 	glow.OutlineTransparency = 0.45
-	glow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	glow.DepthMode = Enum.HighlightDepthMode.Occluded
 	glow.Adornee = model
 	glow.Parent = model
 

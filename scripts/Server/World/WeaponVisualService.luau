@@ -1,0 +1,464 @@
+--!strict
+--[[
+	WeaponVisualService
+	Puts the weapon in the player's hand, and swings it.
+
+	--------------------------------------------------------------------------
+	WHY THIS EXISTS
+
+	Combat has worked numerically since the vertical slice — twenty-five damage
+	a swing, cooldowns, arcs, server-authoritative hit resolution. What it has
+	never had is a weapon. The player punched the air and things died, which is
+	unreadable: you cannot tell what your reach is, you cannot tell whether a
+	swing came out, and you cannot tell you are armed at all.
+
+	So this service builds the equipped weapon out of parts, welds it to the
+	right hand, and animates the arm when the server resolves a swing.
+
+	--------------------------------------------------------------------------
+	NO ANIMATION ASSETS, ON PURPOSE
+
+	A Roblox Animation needs an uploaded asset id and this project cannot upload
+	one yet. So the swing is PROCEDURAL: the right shoulder's Motor6D C0 is
+	driven through a wind-up, a strike and a recovery over about half a second.
+
+	C0 rather than the Animator's Transform channel, for two reasons. C0 changes
+	made on the server replicate to every client, which Transform does not; and
+	because the joint's world CFrame is `Part0 * C0 * Transform * C1:Inverse()`,
+	an offset written into C0 composes ON TOP of whatever idle or walk animation
+	is playing rather than fighting it. The character keeps breathing while the
+	arm swings.
+
+	--------------------------------------------------------------------------
+	IF THE SWORD SITS WRONG IN THE HAND
+
+	`GRIP` below is the one number to change. Everything else is derived from
+	it. There is no way to be sure of a grip offset without looking at it, so it
+	is a single named constant instead of arithmetic spread across the file.
+
+	Place: Forgotten Lands ONLY (Server/World). Phase: Combat.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Server = script.Parent.Parent
+local EquipmentService = require(Server.Services.EquipmentService)
+local Config = require(ReplicatedStorage.Shared.Config)
+local Logger = require(ReplicatedStorage.Shared.Util.Logger)
+
+local WeaponVisualService = {}
+
+WeaponVisualService.Name = "WeaponVisualService"
+
+local log = Logger.new("WeaponVisualService")
+
+--==========================================================================
+--[[
+	How the hilt sits in the fist.
+
+	Read as: drop the sword a little below the grip attachment, then stand the
+	blade up out of the top of the fist. Adjust this ONE value if it looks
+	wrong; nothing else in the file assumes anything about it.
+]]
+local GRIP = CFrame.new(0, -0.55, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+
+--==========================================================================
+-- The swing, as three poses and the time between them.
+--
+-- Angles are applied to the right shoulder in TORSO space. They were written
+-- for a horizontal slash rather than an overhead chop because a slash reads
+-- clearly from any camera angle and does not clip through the character's own
+-- head at the top of the arc.
+--==========================================================================
+local NEUTRAL = CFrame.new()
+local WIND_UP = CFrame.Angles(math.rad(-25), math.rad(-55), math.rad(-20))
+local STRIKE = CFrame.Angles(math.rad(-75), math.rad(45), math.rad(10))
+
+local T_WIND = 0.13 -- back
+local T_STRIKE = 0.12 -- through
+local T_RECOVER = 0.22 -- and down
+
+local PALETTE = {
+	steel = Color3.fromRGB(168, 176, 186),
+	steelDark = Color3.fromRGB(104, 112, 124),
+	edge = Color3.fromRGB(206, 214, 224),
+	guard = Color3.fromRGB(92, 84, 66),
+	grip = Color3.fromRGB(58, 40, 28),
+	pommel = Color3.fromRGB(112, 96, 62),
+}
+
+--==========================================================================
+local swinging: { [Player]: number } = {} -- Player -> animation token
+
+--[[
+	The shoulder's REST pose, remembered the first time each joint is seen.
+
+	Reading `joint.C0` at the start of every swing looks equivalent and is not:
+	interrupt a swing half way and the next one captures a half-raised arm as
+	its home, and the one after that captures a worse one. Within a dozen
+	swings the arm is somewhere behind the character's head and never comes
+	down. A fresh character has a fresh Motor6D, so the first read is always
+	the true rest pose.
+
+	Weak keys, so a dead character's joints do not sit in here for the session.
+]]
+local restPose: { [Motor6D]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+
+local function homeOf(joint: Motor6D): CFrame
+	local cached = restPose[joint]
+	if not cached then
+		cached = joint.C0
+		restPose[joint] = cached
+	end
+	return cached
+end
+
+--==========================================================================
+local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, colour: Color3, material: Enum.Material): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Color = colour
+	p.Material = material
+	p.Anchored = false
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+-- Everything in the sword is welded to the hilt, so moving the hilt moves the
+-- weapon and nothing has to be positioned again at runtime.
+local function weldTo(root: BasePart, piece: BasePart)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = piece
+	weld.Parent = piece
+end
+
+--==========================================================================
+--[[
+	The blade.
+
+	Built along +Y out of the hilt, which is how a Roblox tool handle is
+	oriented, so the same GRIP works whether this ends up welded by hand or
+	handed to the engine as a Tool later.
+]]
+local function buildSword(): (Model, BasePart)
+	local model = Instance.new("Model")
+	model.Name = "OldBlade"
+
+	local hilt = part(model, "Hilt", Vector3.new(0.32, 1.5, 0.32), CFrame.new(), PALETTE.grip, Enum.Material.Fabric)
+	model.PrimaryPart = hilt
+
+	-- Leather binding: three turns, so the grip is not one smooth stick.
+	for i = -1, 1 do
+		local band = part(
+			model,
+			"Binding",
+			Vector3.new(0.4, 0.16, 0.4),
+			CFrame.new(0, i * 0.42, 0),
+			PALETTE.guard,
+			Enum.Material.Fabric
+		)
+		weldTo(hilt, band)
+	end
+
+	local pommel = part(model, "Pommel", Vector3.new(0.52, 0.4, 0.52), CFrame.new(0, -0.9, 0), PALETTE.pommel, Enum.Material.Metal)
+	pommel.Shape = Enum.PartType.Ball
+	weldTo(hilt, pommel)
+
+	-- The crossguard, with a slight droop toward the blade.
+	local guard = part(model, "Guard", Vector3.new(2.6, 0.26, 0.5), CFrame.new(0, 0.85, 0), PALETTE.guard, Enum.Material.Metal)
+	weldTo(hilt, guard)
+	for _, side in { -1, 1 } do
+		local tip = part(
+			model,
+			"GuardTip",
+			Vector3.new(0.5, 0.24, 0.44),
+			CFrame.new(side * 1.4, 0.78, 0) * CFrame.Angles(0, 0, math.rad(side * 18)),
+			PALETTE.guard,
+			Enum.Material.Metal
+		)
+		weldTo(hilt, tip)
+	end
+
+	--------------------------------------------------------------------------
+	-- Blade: a body, a bright edge either side, a fuller down the middle, and a
+	-- point. Five parts, and the difference between a sword and a grey plank.
+	--------------------------------------------------------------------------
+	local blade = part(model, "Blade", Vector3.new(0.62, 4.6, 0.2), CFrame.new(0, 3.3, 0), PALETTE.steel, Enum.Material.Metal)
+	weldTo(hilt, blade)
+
+	local fuller = part(model, "Fuller", Vector3.new(0.2, 3.9, 0.24), CFrame.new(0, 3.2, 0), PALETTE.steelDark, Enum.Material.Metal)
+	weldTo(hilt, fuller)
+
+	for _, side in { -1, 1 } do
+		local edge = part(
+			model,
+			"Edge",
+			Vector3.new(0.12, 4.6, 0.14),
+			CFrame.new(side * 0.28, 3.3, 0),
+			PALETTE.edge,
+			Enum.Material.Metal
+		)
+		weldTo(hilt, edge)
+	end
+
+	local point = part(model, "Point", Vector3.new(0.6, 0.9, 0.2), CFrame.new(0, 5.9, 0) * CFrame.Angles(0, 0, math.rad(45)), PALETTE.edge, Enum.Material.Metal)
+	weldTo(hilt, point)
+
+	--------------------------------------------------------------------------
+	-- The trail. Two attachments along the edge and a Trail between them, off
+	-- until the blade is actually moving — a sword that streaks while you stand
+	-- still looks enchanted, and this one is meant to look old.
+	--------------------------------------------------------------------------
+	local a0 = Instance.new("Attachment")
+	a0.Name = "TrailStart"
+	a0.Position = Vector3.new(0, 1.2, 0)
+	a0.Parent = hilt
+
+	local a1 = Instance.new("Attachment")
+	a1.Name = "TrailEnd"
+	a1.Position = Vector3.new(0, 5.9, 0)
+	a1.Parent = hilt
+
+	local trail = Instance.new("Trail")
+	trail.Name = "Swing"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.16
+	trail.MinLength = 0.1
+	trail.LightEmission = 0.35
+	trail.LightInfluence = 0
+	trail.FaceCamera = false
+	trail.Enabled = false
+	trail.Color = ColorSequence.new(Color3.fromRGB(226, 232, 240), Color3.fromRGB(150, 160, 175))
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	trail.Parent = hilt
+
+	return model, hilt
+end
+
+--==========================================================================
+-- Finding the joint. R15 keeps the shoulder inside RightUpperArm and R6 inside
+-- Torso under a different name, and there is no reason for the rest of this
+-- file to know which rig it got.
+local function rightShoulder(character: Model): Motor6D?
+	for _, d in character:GetDescendants() do
+		if d:IsA("Motor6D") and (d.Name == "RightShoulder" or d.Name == "Right Shoulder") then
+			return d
+		end
+	end
+	return nil
+end
+
+local function rightHand(character: Model): BasePart?
+	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+	return if hand and hand:IsA("BasePart") then hand else nil
+end
+
+--==========================================================================
+local function clearWeapon(character: Model)
+	local old = character:FindFirstChild("OldBlade")
+	if old then
+		old:Destroy()
+	end
+end
+
+--[[
+	Builds and attaches whatever the player has equipped.
+
+	Only one weapon exists so far, so the config is consulted for the NAME and
+	the model is the one built above. When there is a second weapon this is
+	where the switch goes; nothing else changes.
+]]
+local function attachWeapon(player: Player, character: Model)
+	clearWeapon(character)
+
+	local weaponId = EquipmentService.getEquippedWeaponId(player)
+	if not weaponId then
+		return
+	end
+	local def = Config.get("Weapons")[weaponId]
+	if not def or def.Class ~= "Melee" then
+		return
+	end
+
+	local hand = rightHand(character)
+	if not hand then
+		log:warn(("no right hand on %s's character"):format(player.Name))
+		return
+	end
+
+	local model, hilt = buildSword()
+	model.Name = "OldBlade"
+	model.Parent = character
+
+	-- The grip attachment if the rig has one (R15 does), else straight off the
+	-- hand's own centre.
+	local gripAt = hand:FindFirstChild("RightGripAttachment")
+	local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
+
+	local motor = Instance.new("Motor6D")
+	motor.Name = "WeaponGrip"
+	motor.Part0 = hand
+	motor.Part1 = hilt
+	motor.C0 = base * GRIP
+	motor.C1 = CFrame.new()
+	motor.Parent = hand
+
+	log:info(("armed %s with %s"):format(player.Name, tostring(def.DisplayName or weaponId)))
+end
+
+--==========================================================================
+--[[
+	Plays one swing.
+
+	Token-guarded rather than queued: a second swing during the first replaces
+	it. Attack speed is already limited by the weapon's cooldown on the server,
+	so anything that gets here is a legitimate swing and the newest one is the
+	one the player means.
+]]
+function WeaponVisualService.swing(player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local joint = rightShoulder(character)
+	if not joint then
+		return
+	end
+
+	local weapon = character:FindFirstChild("OldBlade")
+	local trail = weapon and weapon:FindFirstChild("Hilt") and (weapon :: any).Hilt:FindFirstChild("Swing")
+
+	local token = (swinging[player] or 0) + 1
+	swinging[player] = token
+
+	local home = homeOf(joint)
+
+	task.spawn(function()
+		local function pose(from: CFrame, to: CFrame, seconds: number, ease: (number) -> number)
+			local t = 0
+			while t < seconds do
+				local dt = RunService.Heartbeat:Wait()
+				if swinging[player] ~= token or not joint.Parent then
+					return false
+				end
+				t = math.min(t + dt, seconds)
+				joint.C0 = home * from:Lerp(to, ease(t / seconds))
+			end
+			return true
+		end
+
+		local easeOut = function(a: number)
+			return 1 - (1 - a) ^ 3
+		end
+		local easeIn = function(a: number)
+			return a * a
+		end
+
+		if not pose(NEUTRAL, WIND_UP, T_WIND, easeOut) then
+			return
+		end
+
+		if trail and trail:IsA("Trail") then
+			trail.Enabled = true
+		end
+		if not pose(WIND_UP, STRIKE, T_STRIKE, easeIn) then
+			if trail and trail:IsA("Trail") then
+				trail.Enabled = false
+			end
+			return
+		end
+		if trail and trail:IsA("Trail") then
+			trail.Enabled = false
+		end
+
+		if not pose(STRIKE, NEUTRAL, T_RECOVER, easeOut) then
+			return
+		end
+
+		-- Hand the joint back exactly as it was found, so a swing interrupted
+		-- by a respawn or a rig change cannot leave an arm stuck out.
+		if swinging[player] == token and joint.Parent then
+			joint.C0 = home
+			swinging[player] = nil
+		end
+	end)
+end
+
+--==========================================================================
+--[[
+	Arms a character as it spawns.
+
+	The starter weapon is granted on PlayerAdded and the first character can
+	arrive before that has finished — an unarmed-looking player who is in fact
+	armed is the worst of both. So it tries again a second later, and only if
+	the first attempt found nothing to attach.
+]]
+local function onCharacter(player: Player, character: Model)
+	swinging[player] = nil
+
+	local function tryAttach()
+		if player.Character ~= character or not character.Parent then
+			return false
+		end
+		attachWeapon(player, character)
+		return character:FindFirstChild("OldBlade") ~= nil
+	end
+
+	task.defer(function()
+		if tryAttach() then
+			return
+		end
+		task.wait(1)
+		tryAttach()
+	end)
+end
+
+--==========================================================================
+function WeaponVisualService.Init() end
+
+function WeaponVisualService.Start()
+	local function hook(player: Player)
+		player.CharacterAdded:Connect(function(character)
+			onCharacter(player, character)
+		end)
+		if player.Character then
+			onCharacter(player, player.Character)
+		end
+	end
+
+	Players.PlayerAdded:Connect(hook)
+	for _, player in Players:GetPlayers() do
+		hook(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		swinging[player] = nil
+	end)
+
+	log:info("ready")
+end
+
+-- Re-reads what the player has equipped and rebuilds it. For the day the forge
+-- can hand over a different blade mid-run.
+function WeaponVisualService.refresh(player: Player)
+	local character = player.Character
+	if character then
+		attachWeapon(player, character)
+	end
+end
+
+return WeaponVisualService

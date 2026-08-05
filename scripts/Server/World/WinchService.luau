@@ -27,17 +27,22 @@
 	hurt in a way a number never would.
 
 	--------------------------------------------------------------------------
-	SOLO-FIRST, AND WHY THE MATHS IS WHAT IT IS
+	HOLD IT. DO NOT TAP IT.
 
-	Each completed hold adds GAIN; the gate slips at SLIP per second whenever
-	nobody is holding. One player who is left alone finishes in about twenty
-	seconds of work. One player who is fighting still finishes — the slip is
-	slow enough that a ten-second scrap costs about three holds, never the lot.
+	One continuous press. Hold E and the gate climbs at RAISE_RATE; let go and
+	it falls at half as fast again, from that same frame, with no grace period
+	and nothing banked.
 
-	More players is faster and never the difference between possible and not: a
-	ProximityPrompt is held per-player, so two people on the same winch produce
-	two completed holds where one produced one. Nobody has to be somewhere at
-	the same moment as anybody else.
+	That multiplier is the area. Fourteen unbroken seconds gets you through, so
+	the room has to be cleared enough to give you fourteen seconds — and every
+	second spent swinging at something costs a second and a half of height. You
+	do not chip away at this while being chewed on; you make space, then you
+	wind.
+
+	SOLO-FIRST. One player alone beats the fall rate comfortably. Each extra
+	pair of hands adds half a pair's worth, so a second player is always worth
+	having and never required, and nobody has to be anywhere at the same moment
+	as anybody else.
 
 	--------------------------------------------------------------------------
 	EVERY POSITION IN HERE WAS MEASURED, NOT COMPUTED
@@ -52,6 +57,7 @@
 	Place: Forgotten Lands ONLY (Server/World). Phase: Areas.
 ]]
 
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -104,11 +110,36 @@ local MAX_FLOOR_Y = 8
 
 --==========================================================================
 -- Turning
+--
+-- HOLD, do not tap. The first version banked a notch per completed hold and
+-- the note back was that it should be one continuous press: hold E and the
+-- gate climbs, let go and it starts down THAT INSTANT.
+--
+-- So there is no grace period and no per-hold gain — just two rates. Up is
+-- slow and deliberate; down is HALF AS FAST AGAIN, which is the number that
+-- makes the whole area work. You cannot wind it while you are being hit, so
+-- the room has to be cleared enough to give you fourteen unbroken seconds, and
+-- every second you spend swinging is a second and a half of height given back.
 --==========================================================================
-local GAIN = 0.075 -- gate fraction added by one completed turn
-local SLIP = 0.022 -- fraction lost per second while nobody is turning
-local GRACE = 0.7 -- seconds after a turn before it starts slipping again
-local HOLD_SECONDS = 1.1
+local RAISE_RATE = 1 / 14 -- fourteen seconds of holding, floor to lintel
+local FALL_MULT = 1.5 -- and nine and a bit to lose it all
+local FALL_RATE = RAISE_RATE * FALL_MULT
+
+--[[
+	A second pair of hands is worth half a first. Two people winding is 1.5x,
+	three is 2x — faster, and never the difference between possible and not,
+	because one player alone still beats the fall rate by a comfortable margin.
+]]
+local EXTRA_HANDS = 0.5
+
+--[[
+	The prompt has to stay unfinished for as long as anyone cares to hold it,
+	and ProximityPrompt only raises its hold events when HoldDuration > 0. A
+	long duration is how you get "held" without ever getting "triggered" — the
+	ring creeps round at 1/90th a second, which nobody looks at, because the
+	thing they are looking at is the gate.
+]]
+local HOLD_SECONDS = 90
 local REACH = 13
 
 --==========================================================================
@@ -146,8 +177,8 @@ local winchGlow: Highlight? = nil
 
 local handleFound = false
 local progress = 0
+local done = false
 local turning: { [number]: boolean } = {} -- UserIds currently holding
-local lastTurn = 0
 
 local hintEvent: RemoteEvent? = nil
 local rng = Random.new()
@@ -177,10 +208,13 @@ end
 
 local function softGlow(adornee: Instance): Highlight
 	--[[
-		Pale and warm, not gold. The loud version of this was the first thing
-		the playtest threw out, and the point of a highlight is only ever "you
-		can touch this" — anything brighter starts competing with the world it
-		is drawn on top of.
+		Pale, warm, and OCCLUDED — it does not draw through walls.
+
+		That last part is the point of the area. Nine boxes lit up through the
+		stables from the doorway is not searching, it is reading a map: you walk
+		straight to the one you want and the room may as well not be there. Now
+		a box lights up when you can see it, so finding the handle costs a walk
+		round the stalls, which is the whole reason the winch is at the far end.
 	]]
 	local glow = Instance.new("Highlight")
 	glow.Name = "Glow"
@@ -188,7 +222,7 @@ local function softGlow(adornee: Instance): Highlight
 	glow.FillTransparency = 0.93
 	glow.OutlineColor = Color3.fromRGB(238, 226, 198)
 	glow.OutlineTransparency = 0.45
-	glow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	glow.DepthMode = Enum.HighlightDepthMode.Occluded
 	glow.Adornee = adornee
 	glow.Parent = adornee
 
@@ -467,7 +501,14 @@ local function buildWinch(parent: Instance)
 	prompt.Name = "Turn"
 	prompt.ActionText = "Turn"
 	prompt.ObjectText = "Winch — no handle"
-	prompt.HoldDuration = 0
+
+	--[[
+		The long hold is set from the START, not only once the handle turns up.
+		PromptButtonHoldBegan does not fire at all when HoldDuration is 0, and
+		that is the event which tells a player pressing E at a handle-less winch
+		why nothing is happening.
+	]]
+	prompt.HoldDuration = HOLD_SECONDS
 	prompt.MaxActivationDistance = REACH
 	prompt.RequiresLineOfSight = false
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
@@ -624,7 +665,6 @@ function WinchService.search(point: SearchPoint, player: Player)
 
 	if winchPrompt then
 		winchPrompt.ObjectText = "Winch"
-		winchPrompt.HoldDuration = HOLD_SECONDS
 	end
 	if not winchGlow and drum then
 		winchGlow = softGlow(drum)
@@ -656,36 +696,57 @@ local function applyProgress()
 	end
 end
 
-local function turn(player: Player)
-	if not handleFound then
-		hint("Find the handle first")
-		task.delay(3, function()
-			if not handleFound then
-				hint("Find the winch handle")
-			end
-		end)
+local function finish()
+	hint(nil)
+	if winchPrompt then
+		winchPrompt.Enabled = false
+	end
+	if winchGlow then
+		winchGlow:Destroy()
+		winchGlow = nil
+	end
+	log:info("winch fully wound — area 2 open")
+	AreaService.clear(AREA)
+end
+
+--[[
+	How many hands are on it, and how fast that makes it climb.
+
+	Zero hands is the fall. One is the raise rate. Each extra pair adds half a
+	pair's worth, so it is always worth having someone else on the winch and
+	never necessary.
+]]
+local function windRate(): number
+	local hands = 0
+	for _ in turning do
+		hands += 1
+	end
+	if hands == 0 then
+		return -FALL_RATE
+	end
+	return RAISE_RATE * (1 + (hands - 1) * EXTRA_HANDS)
+end
+
+--[[
+	Someone grabbed it. The handle has to be in before anything happens — and
+	saying so costs one line and saves a player standing there pressing E at a
+	winch that will never move.
+]]
+local function grab(player: Player)
+	if handleFound then
+		turning[player.UserId] = true
 		return
 	end
-	if progress >= 1 then
-		return
-	end
-
-	progress = math.min(progress + GAIN, 1)
-	lastTurn = os.clock()
-	applyProgress()
-
-	if progress >= 1 then
-		hint(nil)
-		if winchPrompt then
-			winchPrompt.Enabled = false
+	hint("Find the handle first")
+	task.delay(3, function()
+		if not handleFound then
+			hint("Find the winch handle")
 		end
-		if winchGlow then
-			winchGlow:Destroy()
-			winchGlow = nil
-		end
-		log:info("winch fully wound — area 2 open")
-		AreaService.clear(AREA)
-	end
+	end)
+end
+
+local function release(player: Player)
+	turning[player.UserId] = nil
 end
 
 --==========================================================================
@@ -709,16 +770,20 @@ local function begin(player: Player)
 	buildWinch(model)
 	placeSearchPoints(model)
 
+	--[[
+		Hold events, not Triggered. HOLD_SECONDS is long enough that the prompt
+		is never actually completed, so `Began` and `Ended` bracket exactly how
+		long the player kept E down — which is the whole mechanic. Triggered is
+		still wired for the case where somebody does hold it for a minute and a
+		half, so the winch does not silently stop responding.
+	]]
 	if winchPrompt then
-		winchPrompt.Triggered:Connect(turn)
-		winchPrompt.PromptButtonHoldBegan:Connect(function(who: Player)
-			turning[who.UserId] = true
-		end)
-		winchPrompt.PromptButtonHoldEnded:Connect(function(who: Player)
-			turning[who.UserId] = nil
-			lastTurn = os.clock()
-		end)
+		winchPrompt.PromptButtonHoldBegan:Connect(grab)
+		winchPrompt.PromptButtonHoldEnded:Connect(release)
+		winchPrompt.Triggered:Connect(release)
 	end
+
+	Players.PlayerRemoving:Connect(release)
 
 	hint("Find the winch handle")
 	log:info(("%s entered — winch armed, handle hidden"):format(player.Name))
@@ -736,22 +801,28 @@ function WinchService.Start()
 	AreaService.onEnter(AREA, begin)
 
 	--[[
-		The slip. It runs only while the winch is up and nobody has their hands
-		on it, and it pauses for a moment after a turn so that re-triggering the
-		prompt quickly does not quietly cost the player ground they just won.
+		One loop, both directions. Hands on it and it climbs; hands off and it
+		falls, from the same frame, with no grace and nothing banked. That is
+		what "hold E" means, and it is why letting go to swing at something
+		costs real height rather than a notch on a counter.
 	]]
 	RunService.Heartbeat:Connect(function(dt: number)
-		if not started or progress <= 0 or progress >= 1 then
+		if not started or done then
 			return
 		end
-		if next(turning) ~= nil then
-			return
+
+		local rate = windRate()
+		if rate < 0 and progress <= 0 then
+			return -- already on the floor; nothing to lose
 		end
-		if os.clock() - lastTurn < GRACE then
-			return
-		end
-		progress = math.max(progress - SLIP * dt, 0)
+
+		progress = math.clamp(progress + rate * dt, 0, 1)
 		applyProgress()
+
+		if progress >= 1 then
+			done = true
+			finish()
+		end
 	end)
 
 	log:info("armed — waits for a player to enter area 2")
@@ -761,8 +832,9 @@ end
 function WinchService.forceOpen()
 	handleFound = true
 	progress = 1
+	done = true
 	applyProgress()
-	AreaService.clear(AREA)
+	finish()
 end
 
 return WinchService

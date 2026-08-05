@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Server = script.Parent.Parent
 local CombatService = require(script.Parent.CombatService)
 local CombatEntity = require(Server.Domain.Combat.CombatEntity)
+local WeaponVisualService = require(script.Parent.WeaponVisualService)
 local EquipmentService = require(Server.Services.EquipmentService)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -124,6 +125,14 @@ local function onAttack(player: Player, aim: any)
 		return
 	end
 	lastSwing[player] = now
+
+	--[[
+		Swing the arm the moment the cooldown lets the attack through, BEFORE
+		hits are resolved. It costs nothing and it means the animation plays on
+		exactly the swings the server counted — a whiff looks like a whiff, and
+		a swing eaten by the cooldown correctly shows nothing at all.
+	]]
+	WeaponVisualService.swing(player)
 
 	-- Facing: accept a sane client aim, else the character's look direction. The
 	-- server still owns hit resolution regardless of what the client sends.

@@ -1,5 +1,33 @@
 # Changelog
 
+## Version 0.16.0 — A sword you can see
+
+- **`Server/World/WeaponVisualService`**: the player was punching. Combat has been
+  numerically correct since the vertical slice and has never had a weapon on screen —
+  you could not read your reach, tell whether a swing came out, or tell you were armed.
+  The equipped weapon is now built from parts (hilt, binding, pommel, crossguard, fuller,
+  twin edges, point) and welded to the right hand, with a `Trail` on the blade that is
+  off except during the strike.
+- **The swing is procedural.** Roblox animations need an uploaded asset id and this
+  project has none, so the right shoulder's `Motor6D.C0` is driven through wind-up →
+  strike → recover in ~0.47s. C0 rather than the Animator's `Transform` channel for two
+  reasons: server C0 changes replicate and `Transform` does not, and because the joint
+  is `Part0 * C0 * Transform * C1⁻¹` the offset composes **on top of** the idle/walk
+  animation instead of fighting it. `GRIP` is the single constant to adjust if the
+  sword sits wrong in the fist.
+- **The winch is a HOLD, not a tap.** No more banked notches: hold E and the gate climbs
+  at 1/14 per second, let go and it falls at **×1.5** from that same frame, with no
+  grace. Fourteen unbroken seconds gets you through, so the room has to be cleared
+  enough to give you fourteen — and every second spent swinging costs a second and a
+  half of height. Each extra pair of hands adds half a pair's worth.
+- **Highlights no longer draw through walls** (`DepthMode.Occluded`). Nine boxes lit up
+  through the stables from the doorway is not searching, it is reading a map.
+- **Enemies notice you from across the room.** Detection radii were 40–60 in chambers
+  300×200 studs with spawn markers up to 150 away, so the dead stood where they spawned
+  and were never seen. Shambler 45→110, runner 60→130, heavy 40→100, spearman 55→120,
+  archer 85→145, King 120→200, with leashes at roughly twice that so they follow you
+  through the arch instead of turning round in the doorway.
+
 ## Version 0.15.0 — The dead, in every room
 
 Areas 1 and 2 both played correctly and both played wrong: you cut three ropes, found
