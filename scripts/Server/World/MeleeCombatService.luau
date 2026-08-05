@@ -113,6 +113,16 @@ local function onAttack(player: Player, aim: any)
 		return
 	end
 
+	--[[
+		A sheathed sword does not cut. Checked HERE and not on the client,
+		because "am I holding my weapon" is exactly the kind of thing a client
+		would like to be wrong about — and because it makes the 1 key a real
+		decision rather than a cosmetic one.
+	]]
+	if not WeaponVisualService.isDrawn(player) then
+		return
+	end
+
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then

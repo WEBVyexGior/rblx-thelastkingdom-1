@@ -45,15 +45,30 @@ function CombatController.Init() end
 
 function CombatController.Start()
 	local requestAttack = Net.getEvent("RequestMeleeAttack")
+	local requestToggle = Net.getEvent("RequestToggleWeapon")
 	local combatEvent = Net.getEvent("CombatEvent")
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 		if processed then
 			return
 		end
+
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			-- Intent only; the server owns validation and hit resolution.
 			requestAttack:FireServer(currentAim())
+			return
+		end
+
+		--[[
+			1 draws the weapon, 1 again puts it away.
+
+			The number row on purpose: it is where a hotbar goes, and the second
+			and third weapons will hang off 2 and 3 without this having to be
+			redesigned. The server decides what actually happens — this only
+			says the key was pressed.
+		]]
+		if input.KeyCode == Enum.KeyCode.One then
+			requestToggle:FireServer()
 		end
 	end)
 

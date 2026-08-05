@@ -43,6 +43,7 @@ local EVENT_NAMES: { string } = {
 	"RequestForgeUpgrade", -- client -> server: buy the next level of one weapon
 	"AreaEvent", -- server -> client: which chamber you are in, and whether its gate is shut
 	"ObjectiveHint", -- server -> client: the one line at the top saying what to do now
+	"RequestToggleWeapon", -- client -> server: draw the weapon, or put it away
 }
 local FUNCTION_NAMES: { string } = {}
 

@@ -41,10 +41,12 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Server = script.Parent.Parent
 local EquipmentService = require(Server.Services.EquipmentService)
+local Net = require(ReplicatedStorage.Shared.Net)
 local Config = require(ReplicatedStorage.Shared.Config)
 local Logger = require(ReplicatedStorage.Shared.Util.Logger)
 
@@ -58,11 +60,25 @@ local log = Logger.new("WeaponVisualService")
 --[[
 	How the hilt sits in the fist.
 
-	Read as: drop the sword a little below the grip attachment, then stand the
-	blade up out of the top of the fist. Adjust this ONE value if it looks
-	wrong; nothing else in the file assumes anything about it.
+	Adjusted from a playtest: it was rotated a quarter turn about X and pointing
+	down and forward, and the correction never survived a respawn because the
+	sword is rebuilt from this constant every time a character loads. Baked in
+	now, so it survives dying.
+
+	If it is still wrong, this is the ONE value to change. Print the truth with:
+
+	    local c = game.Players.<name>.Character
+	    local a = c.RightHand.RightGripAttachment
+	    print(a.CFrame:Inverse() * c.RightHand.WeaponGrip.C0)
 ]]
-local GRIP = CFrame.new(0, -0.55, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+local GRIP = CFrame.new(0, -0.55, 0)
+
+--[[
+	And where it rides when it is put away: across the back, hilt up over the
+	left shoulder, which is where a sword that big goes and where it is out of
+	the way of everything the camera wants to see.
+]]
+local SHEATH = CFrame.new(-0.4, 0.2, 1.1) * CFrame.Angles(math.rad(15), 0, math.rad(-150))
 
 --==========================================================================
 -- The swing, as three poses and the time between them.
@@ -91,6 +107,7 @@ local PALETTE = {
 
 --==========================================================================
 local swinging: { [Player]: number } = {} -- Player -> animation token
+local drawn: { [Player]: boolean } = {} -- is the weapon in hand, or on the back
 
 --[[
 	The shoulder's REST pose, remembered the first time each joint is seen.
@@ -268,6 +285,12 @@ local function rightHand(character: Model): BasePart?
 	return if hand and hand:IsA("BasePart") then hand else nil
 end
 
+-- Where a sheathed weapon hangs. R15 has an UpperTorso; R6 calls it Torso.
+local function back(character: Model): BasePart?
+	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+	return if torso and torso:IsA("BasePart") then torso else nil
+end
+
 --==========================================================================
 local function clearWeapon(character: Model)
 	local old = character:FindFirstChild("OldBlade")
@@ -283,6 +306,52 @@ end
 	the model is the one built above. When there is a second weapon this is
 	where the switch goes; nothing else changes.
 ]]
+--[[
+	A hand-made model for this weapon, if one has been put in ServerStorage.
+
+	PARTS ARE THE WRONG TOOL FOR A SWORD, and this is the door out of that. A
+	castle is straight pieces — walls, beams, planks, rope turns — and building
+	those out of primitives looks right because that is what they are. A blade
+	is not: it has a taper, a fuller, a wrapped grip and a rounded pommel, and
+	two hundred boxes approximating those still looks like two hundred boxes. A
+	single MeshPart beats it and always will.
+
+	So: drop a model at `ServerStorage.Models.Weapons.<weaponId>` — from the
+	toolbox, from Blender, from anywhere — give it a `Hilt` part (or let it use
+	its PrimaryPart) and it is used instead. Nothing else changes: the same
+	grip, the same swing, the same trail if it has one.
+]]
+local function suppliedModel(weaponId: string): (Model?, BasePart?)
+	local models = ServerStorage:FindFirstChild("Models")
+	local weapons = models and models:FindFirstChild("Weapons")
+	local source = weapons and weapons:FindFirstChild(weaponId)
+	if not source or not source:IsA("Model") then
+		return nil, nil
+	end
+
+	local clone = source:Clone()
+	local hilt = clone:FindFirstChild("Hilt") or clone.PrimaryPart
+	if not hilt or not hilt:IsA("BasePart") then
+		clone:Destroy()
+		log:warn(("ServerStorage weapon '%s' has no Hilt part and no PrimaryPart"):format(weaponId))
+		return nil, nil
+	end
+
+	-- Nothing on a held weapon may collide, be queried, or weigh anything: it
+	-- would push the player around, eat their own sword swing, and slow them.
+	for _, d in clone:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.Massless = true
+			d.Anchored = false
+		end
+	end
+
+	return clone, hilt
+end
+
 local function attachWeapon(player: Player, character: Model)
 	clearWeapon(character)
 
@@ -301,24 +370,82 @@ local function attachWeapon(player: Player, character: Model)
 		return
 	end
 
-	local model, hilt = buildSword()
+	local model, hilt = suppliedModel(weaponId)
+	if not model or not hilt then
+		model, hilt = buildSword()
+	end
 	model.Name = "OldBlade"
 	model.Parent = character
 
-	-- The grip attachment if the rig has one (R15 does), else straight off the
-	-- hand's own centre.
-	local gripAt = hand:FindFirstChild("RightGripAttachment")
-	local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
-
 	local motor = Instance.new("Motor6D")
 	motor.Name = "WeaponGrip"
-	motor.Part0 = hand
 	motor.Part1 = hilt
-	motor.C0 = base * GRIP
 	motor.C1 = CFrame.new()
 	motor.Parent = hand
 
+	drawn[player] = true
+	WeaponVisualService.setDrawn(player, drawn[player])
+
 	log:info(("armed %s with %s"):format(player.Name, tostring(def.DisplayName or weaponId)))
+end
+
+--==========================================================================
+--[[
+	Moves the weapon between the hand and the back.
+
+	One Motor6D, re-parented and re-based, rather than two welds or two models.
+	The sword is the same instance either way, so nothing has to be rebuilt, the
+	trail keeps its attachments, and there is no frame where the player has two
+	swords or none.
+]]
+function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local weapon = character:FindFirstChild("OldBlade")
+	local hilt = weapon and weapon:FindFirstChild("Hilt")
+	if not hilt or not hilt:IsA("BasePart") then
+		return
+	end
+
+	local motor = character:FindFirstChild("WeaponGrip", true)
+	if not motor or not motor:IsA("Motor6D") then
+		return
+	end
+
+	if wantDrawn then
+		local hand = rightHand(character)
+		if not hand then
+			return
+		end
+		-- The grip attachment if the rig has one (R15 does), else straight off
+		-- the hand's own centre.
+		local gripAt = hand:FindFirstChild("RightGripAttachment")
+		local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
+		motor.Part0 = hand
+		motor.C0 = base * GRIP
+		motor.Parent = hand
+	else
+		local torso = back(character)
+		if not torso then
+			return
+		end
+		motor.Part0 = torso
+		motor.C0 = SHEATH
+		motor.Parent = torso
+	end
+
+	drawn[player] = wantDrawn
+end
+
+function WeaponVisualService.isDrawn(player: Player): boolean
+	return drawn[player] == true
+end
+
+-- Draw if sheathed, sheathe if drawn. What the 1 key does.
+function WeaponVisualService.toggle(player: Player)
+	WeaponVisualService.setDrawn(player, not WeaponVisualService.isDrawn(player))
 end
 
 --==========================================================================
@@ -445,8 +572,21 @@ function WeaponVisualService.Start()
 	for _, player in Players:GetPlayers() do
 		hook(player)
 	end
+	--[[
+		The 1 key. Draw or put away.
+
+		Server-owned, like everything else here: the client asks, the server
+		decides and moves the joint, and every other client sees it because a
+		Motor6D change replicates. A client that spams the key just re-parents
+		one Motor6D, which is why this needs no rate limit.
+	]]
+	Net.getEvent("RequestToggleWeapon").OnServerEvent:Connect(function(player: Player)
+		WeaponVisualService.toggle(player)
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
 		swinging[player] = nil
+		drawn[player] = nil
 	end)
 
 	log:info("ready")

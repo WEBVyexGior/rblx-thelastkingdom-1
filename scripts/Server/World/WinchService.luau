@@ -218,16 +218,24 @@ local function softGlow(adornee: Instance): Highlight
 	]]
 	local glow = Instance.new("Highlight")
 	glow.Name = "Glow"
-	glow.FillColor = Color3.fromRGB(226, 208, 170)
-	glow.FillTransparency = 0.93
-	glow.OutlineColor = Color3.fromRGB(238, 226, 198)
-	glow.OutlineTransparency = 0.45
+	glow.FillColor = Color3.fromRGB(232, 216, 182)
+	glow.FillTransparency = 0.86
+	glow.OutlineColor = Color3.fromRGB(240, 230, 206)
+	glow.OutlineTransparency = 0.88
 	glow.DepthMode = Enum.HighlightDepthMode.Occluded
 	glow.Adornee = adornee
 	glow.Parent = adornee
 
-	TweenService:Create(glow, TweenInfo.new(2.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-		OutlineTransparency = 0.72,
+	--[[
+		The FILL breathes, not the outline.
+
+		A hard bright edge round a barrel is a video game marker; a faint warmth
+		coming off the wood is a thing catching the light. The outline is turned
+		down to almost nothing — it is there to define the shape at a distance
+		and for no other reason.
+	]]
+	TweenService:Create(glow, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+		FillTransparency = 0.95,
 	}):Play()
 	return glow
 end

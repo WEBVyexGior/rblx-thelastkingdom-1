@@ -425,16 +425,18 @@ local function buildLashing(parent: Instance, centre: Vector3, spec: { x: number
 	]]
 	local glow = Instance.new("Highlight")
 	glow.Name = "Glow"
-	glow.FillColor = Color3.fromRGB(226, 208, 170)
-	glow.FillTransparency = 0.93
-	glow.OutlineColor = Color3.fromRGB(238, 226, 198)
-	glow.OutlineTransparency = 0.45
+	glow.FillColor = Color3.fromRGB(232, 216, 182)
+	glow.FillTransparency = 0.86
+	glow.OutlineColor = Color3.fromRGB(240, 230, 206)
+	glow.OutlineTransparency = 0.88
 	glow.DepthMode = Enum.HighlightDepthMode.Occluded
 	glow.Adornee = model
 	glow.Parent = model
 
-	TweenService:Create(glow, TweenInfo.new(2.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-		OutlineTransparency = 0.72,
+	-- The fill breathes, not the outline: a faint warmth off the rope, not a
+	-- bright edge drawn round it.
+	TweenService:Create(glow, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+		FillTransparency = 0.95,
 	}):Play()
 
 	-- The prompt hangs on its own anchor in front of the rope, so the player
