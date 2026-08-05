@@ -77,11 +77,28 @@ matter, tuned so one player still clears it.
 
 ## 2 — Στάβλοι · The winch
 
+*Built. `Server/World/WinchService`.*
+
 The portcullis is down and the crank handle is missing — search the stalls.
 Then raise it: it **slips back slowly** when you let go. The slip rate is tuned
 so one player beats it by alternating; a second player just makes it quicker.
 
 Slightly harder than area 1. Not much.
+
+**As built:** nine search points (crates, barrels, bales, sacks, chests) scattered
+around the stables by the game itself — it raycasts for a floor and rejects
+anything already occupied, so nothing is ever placed inside the scenery. One of
+them holds the handle and **which one changes every run**. The winch stands at
+x −88, z −364: clear of the flanking tower and of the measured road, and 30
+studs from the arch, with its rope running up to it.
+
+**The gate is the progress bar.** Turning does not fill a bar on screen — it
+raises the actual portcullis, and letting go lowers it. GAIN 0.075 per completed
+hold, SLIP 0.022/sec, 0.7s grace after a turn. Alone and unbothered that is
+about twenty seconds of work; a ten-second fight costs roughly three holds.
+A ProximityPrompt is held per-player, so two people on the same winch make two
+turns where one made one — faster, never the difference between possible and
+not.
 
 ## 3 — Μαγειρεία · The recipe, and the five
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## Version 0.14.0 — Area 2's winch
+
+- **`Server/World/WinchService`**: the portcullis out of the Stables is down and the
+  winch has lost its handle. Nine search points — crates, barrels, bales, sacks,
+  chests — are scattered around the stables **at runtime**: the service raycasts for a
+  floor, rejects anything above ward level (a ray dropped over the stables lands on the
+  roof), rejects anything overlapping existing geometry, and keeps 20 studs off the
+  measured road. One holds the handle and which one changes every run.
+- **The gate is the progress bar.** `AreaService.setOpenFraction(index, f)` (new) lets a
+  mechanic drive the grille directly. Turning the winch raises the real portcullis a
+  fraction at a time and letting go lowers it — no bar on screen, and the slip-back
+  hurts in a way a number could not. GAIN 0.075 per hold, SLIP 0.022/sec, 0.7s grace.
+- **Solo-first**: alone and unbothered it is ~20 seconds of work; a ten-second fight
+  costs about three holds. A `ProximityPrompt` is held per player, so two people on the
+  same winch produce two turns where one produced one — faster, never the difference
+  between possible and not.
+- **Plain words** everywhere on screen: "Look around", "Keep going", "Kill them all",
+  "Cut the ropes — 2 left", "Find the winch handle", "Turn the winch". The prompt on the
+  barricade says Rope, not Lashing.
+- **`tools/SurveyArea2`** replaces `tools/BuildStables` (deleted). It measures rather
+  than computes: the real road in ten z-slices, the real bounds of the user's own
+  `Horse Stable`, and everything else standing in the chamber. The stable range I built
+  from `BuildChambers`' constants landed on the road; every position in `WinchService`
+  came from this survey instead.
+
 ## Version 0.13.0 — The HUD gets quiet, the world gets loud
 
 Playtest feedback, applied. The screen was shouting and the props were greyboxes.

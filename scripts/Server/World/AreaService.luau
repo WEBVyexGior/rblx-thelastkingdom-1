@@ -573,6 +573,27 @@ function AreaService.isCleared(index: number): boolean
 end
 
 --[[
+	Puts a gate at `fraction` of the way up, right now, with no easing.
+
+	This is for a mechanic that RAISES the gate itself rather than opening it in
+	one go — area 2's winch, which creeps it up while you turn and lets it slip
+	back while you fight. The gate IS the progress bar, which beats any bar that
+	could be drawn on the screen: you look at the thing you are trying to get
+	through and you can see how far you have got.
+
+	It bumps the animation token, so a lift or a drop already in flight stops
+	dead rather than fighting the caller for the same grille.
+]]
+function AreaService.setOpenFraction(index: number, fraction: number)
+	local gate = gates[index]
+	if not gate then
+		return
+	end
+	gate.token += 1
+	applyOffset(gate, math.clamp(fraction, 0, 1) * TRAVEL)
+end
+
+--[[
 	The middle of chamber `index`'s doorway, at floor level.
 
 	Public because the per-area mechanics build ON the gate — area 1's barricade
