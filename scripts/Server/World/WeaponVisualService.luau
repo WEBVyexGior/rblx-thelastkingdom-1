@@ -316,24 +316,85 @@ end
 	two hundred boxes approximating those still looks like two hundred boxes. A
 	single MeshPart beats it and always will.
 
-	So: drop a model at `ServerStorage.Models.Weapons.<weaponId>` — from the
-	toolbox, from Blender, from anywhere — give it a `Hilt` part (or let it use
-	its PrimaryPart) and it is used instead. Nothing else changes: the same
-	grip, the same swing, the same trail if it has one.
+	So: drop ANYTHING at `ServerStorage.Models.Weapons.<weaponId>` — from the
+	toolbox, from Blender, from anywhere. Nothing else changes: the same grip,
+	the same swing, the same trail if it has one.
+
+	IT TAKES WHAT IT IS GIVEN. The first version demanded a Model with a part
+	called `Hilt`, so a perfectly good single-MeshPart sword was silently
+	ignored and the built one kept turning up instead. A weapon arrives as one
+	of three things and all three are now accepted:
+
+	    Part / MeshPart   the whole sword IS the hilt
+	    Tool              its Handle is the hilt, which is what a Handle is
+	    Model             a part called Hilt, else its PrimaryPart, else the
+	                      biggest part in it — because the biggest part of a
+	                      sword is the blade, and a blade welded at its centre
+	                      is a better guess than nothing at all
 ]]
-local function suppliedModel(weaponId: string): (Model?, BasePart?)
+local function biggestPart(root: Instance): BasePart?
+	local best: BasePart? = nil
+	local bestVolume = -1
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") then
+			local v = d.Size.X * d.Size.Y * d.Size.Z
+			if v > bestVolume then
+				best, bestVolume = d, v
+			end
+		end
+	end
+	return best
+end
+
+local function suppliedModel(weaponId: string): (Instance?, BasePart?)
 	local models = ServerStorage:FindFirstChild("Models")
 	local weapons = models and models:FindFirstChild("Weapons")
 	local source = weapons and weapons:FindFirstChild(weaponId)
-	if not source or not source:IsA("Model") then
+	if not source then
 		return nil, nil
 	end
 
-	local clone = source:Clone()
-	local hilt = clone:FindFirstChild("Hilt") or clone.PrimaryPart
-	if not hilt or not hilt:IsA("BasePart") then
+	--[[
+		A bare Part cannot be parented to the character and then moved as a
+		unit, so it is wrapped in a Model. Everything downstream then has one
+		shape to deal with instead of three.
+	]]
+	local clone: Instance
+	local hilt: BasePart?
+
+	if source:IsA("BasePart") then
+		local wrapper = Instance.new("Model")
+		local part = source:Clone()
+		part.Parent = wrapper
+		wrapper.PrimaryPart = part
+		clone, hilt = wrapper, part
+	elseif source:IsA("Tool") then
+		local wrapper = source:Clone()
+		hilt = wrapper:FindFirstChild("Handle") :: BasePart?
+		if not hilt then
+			hilt = biggestPart(wrapper)
+		end
+		-- A Tool is not a Model; re-house its parts so the character gets
+		-- something it can hold rather than something it can equip.
+		local model = Instance.new("Model")
+		for _, child in wrapper:GetChildren() do
+			child.Parent = model
+		end
+		wrapper:Destroy()
+		model.PrimaryPart = if hilt and hilt:IsDescendantOf(model) then hilt else nil
+		clone = model
+	elseif source:IsA("Model") then
+		clone = source:Clone()
+		local found = (clone :: Model):FindFirstChild("Hilt") or (clone :: Model).PrimaryPart or biggestPart(clone)
+		hilt = if found and found:IsA("BasePart") then found else nil
+	else
+		log:warn(("weapon '%s' is a %s — expected a Part, Tool or Model"):format(weaponId, source.ClassName))
+		return nil, nil
+	end
+
+	if not hilt then
 		clone:Destroy()
-		log:warn(("ServerStorage weapon '%s' has no Hilt part and no PrimaryPart"):format(weaponId))
+		log:warn(("weapon '%s' has no parts in it"):format(weaponId))
 		return nil, nil
 	end
 
@@ -385,7 +446,9 @@ local function attachWeapon(player: Player, character: Model)
 	end
 
 	local model, hilt = suppliedModel(weaponId)
-	if not model or not hilt then
+	if model and hilt then
+		log:info(("using the supplied model for '%s'"):format(weaponId))
+	else
 		model, hilt = buildSword()
 	end
 	model.Name = "OldBlade"
