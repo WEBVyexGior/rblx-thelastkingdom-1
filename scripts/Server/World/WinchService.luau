@@ -133,13 +133,17 @@ local FALL_RATE = RAISE_RATE * FALL_MULT
 local EXTRA_HANDS = 0.5
 
 --[[
-	The prompt has to stay unfinished for as long as anyone cares to hold it,
-	and ProximityPrompt only raises its hold events when HoldDuration > 0. A
-	long duration is how you get "held" without ever getting "triggered" — the
-	ring creeps round at 1/90th a second, which nobody looks at, because the
-	thing they are looking at is the gate.
+	The ring on the prompt fills in EXACTLY the time it takes to raise the gate.
+
+	It used to be set to ninety seconds, so it crept round at a rate that meant
+	nothing and told the player a lie about how long the job was. A progress
+	ring either shows the real thing or it should not be there at all. Fourteen
+	seconds of holding is a full lift, so fourteen is what the ring counts.
+
+	It also has to be greater than zero for PromptButtonHoldBegan to fire at
+	all, which is the event this whole mechanic is built on.
 ]]
-local HOLD_SECONDS = 90
+local HOLD_SECONDS = 1 / RAISE_RATE
 local REACH = 13
 
 --==========================================================================

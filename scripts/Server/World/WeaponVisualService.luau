@@ -398,6 +398,49 @@ local function suppliedModel(weaponId: string): (Instance?, BasePart?)
 		return nil, nil
 	end
 
+	--[[
+		Is this actually a sword, or one bolt off one?
+
+		A supplied weapon can be attached perfectly and still be invisible, and
+		the log will happily say "using the supplied model" while the player
+		stands there empty-handed. That happened: `starter_sword` was a single
+		Part — one piece pulled out of a toolbox model rather than the model
+		itself — and it was welded on faithfully at a size nobody could see.
+
+		So measure it. Anything shorter than a forearm is not the weapon, it is
+		a fragment, and the built blade is a better answer than nothing.
+	]]
+	local lo, hi = Vector3.new(math.huge, math.huge, math.huge), Vector3.new(-math.huge, -math.huge, -math.huge)
+	local pieces = 0
+	for _, d in clone:GetDescendants() do
+		if d:IsA("BasePart") then
+			pieces += 1
+			lo = lo:Min(d.Position - d.Size / 2)
+			hi = hi:Max(d.Position + d.Size / 2)
+		end
+	end
+	local extent = hi - lo
+	local longest = math.max(extent.X, extent.Y, extent.Z)
+
+	log:info(("weapon '%s': %s, %d part(s), %.1f x %.1f x %.1f studs"):format(
+		weaponId,
+		source.ClassName,
+		pieces,
+		extent.X,
+		extent.Y,
+		extent.Z
+	))
+
+	if longest < 3 then
+		clone:Destroy()
+		log:warn(("weapon '%s' is only %.1f studs long — that is a piece of a sword, not a sword."):format(
+			weaponId,
+			longest
+		))
+		log:warn("  Put the WHOLE model in ServerStorage.Models.Weapons, not one part out of it.")
+		return nil, nil
+	end
+
 	for _, d in clone:GetDescendants() do
 		if d:IsA("BasePart") then
 			-- Nothing on a held weapon may collide, be queried, or weigh
