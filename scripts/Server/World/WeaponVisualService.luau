@@ -285,6 +285,31 @@ local function rightHand(character: Model): BasePart?
 	return if hand and hand:IsA("BasePart") then hand else nil
 end
 
+--[[
+	Turns a weapon so its LENGTH points out of the fist.
+
+	GRIP assumes a blade that runs along its own +Y, which is how a Roblox tool
+	Handle is built and is not how a part off the toolbox necessarily is. The
+	supplied sword measured 0.8 x 0.5 x 6.6 — six and a half studs long down
+	its Z — so welding it as if the length were Y drove the whole blade
+	sideways into the character's arm, where it was attached perfectly and
+	completely invisible.
+
+	So the long axis is MEASURED and rotated onto +Y. A Motor6D resolves as
+	`Part0 * C0 * C1:Inverse()`, so putting R in C1 turns the part by R
+	inverse — and R is chosen so that R * up lands on whichever axis is
+	longest. Works for any weapon anyone ever drops in, in any orientation.
+]]
+local function alignLongAxis(part: BasePart): CFrame
+	local s = part.Size
+	if s.X >= s.Y and s.X >= s.Z then
+		return CFrame.Angles(0, 0, math.rad(-90)) -- up -> +X
+	elseif s.Z >= s.X and s.Z >= s.Y then
+		return CFrame.Angles(math.rad(90), 0, 0) -- up -> +Z
+	end
+	return CFrame.new() -- already along Y
+end
+
 -- Where a sheathed weapon hangs. R15 has an UpperTorso; R6 calls it Torso.
 local function back(character: Model): BasePart?
 	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
@@ -545,6 +570,7 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 		local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
 		motor.Part0 = hand
 		motor.C0 = base * GRIP
+		motor.C1 = alignLongAxis(hilt)
 		motor.Parent = hand
 	else
 		local torso = back(character)
@@ -553,6 +579,7 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 		end
 		motor.Part0 = torso
 		motor.C0 = SHEATH
+		motor.C1 = alignLongAxis(hilt)
 		motor.Parent = torso
 	end
 
