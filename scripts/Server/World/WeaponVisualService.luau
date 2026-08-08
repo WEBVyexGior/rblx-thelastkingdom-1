@@ -74,27 +74,71 @@ local log = Logger.new("WeaponVisualService")
 local GRIP = CFrame.new(0, -0.55, 0)
 
 --[[
-	And where it rides when it is put away: across the back, hilt up over the
-	left shoulder, which is where a sword that big goes and where it is out of
-	the way of everything the camera wants to see.
+	And where it rides when it is put away: ON THE RIGHT LEG.
+
+	Not across the back. A sword goes on the hip on the same side as the hand
+	that draws it, hanging down the outside of the thigh with the hilt at the
+	top where the hand can reach it. That is the only place it has ever gone,
+	and it is what was asked for.
+
+	+X is outboard of the right leg, so 0.62 puts it clear of the thigh rather
+	than inside it. The 194 degrees about Z is 180 to turn the blade downward
+	plus 14 of rake, so the hilt kicks forward off the hip instead of lying
+	flat against it — which is the difference between a sword worn and a sword
+	stuck on.
 ]]
-local SHEATH = CFrame.new(-0.4, 0.2, 1.1) * CFrame.Angles(math.rad(15), 0, math.rad(-150))
+local SHEATH = CFrame.new(0.62, 0.35, 0.1) * CFrame.Angles(0, 0, math.rad(194))
 
 --==========================================================================
--- The swing, as three poses and the time between them.
+-- The arm
+--==========================================================================
+
+--[[
+	How the sword arm is carried while the weapon is DRAWN.
+
+	A character holding a blade in the same pose as a character holding nothing
+	is a character who has not noticed they are holding a blade. The arm comes
+	out and forward a little and stays there, and everything else — the walk,
+	the idle breathing — plays on top, because this is an offset on the joint
+	rather than an animation fighting one.
+]]
+local READY = CFrame.Angles(math.rad(-16), math.rad(-10), math.rad(-14))
+
+--[[
+	Three swings, cycled.
+
+	The same arc three times in a row is what makes combat read as a machine.
+	These are a backhand across the body, a forehand back across it, and an
+	overhead chop — so a run of hits looks like someone fighting rather than
+	someone pressing a button.
+]]
+local SWINGS = {
+	{
+		wind = CFrame.Angles(math.rad(-20), math.rad(-62), math.rad(-24)),
+		strike = CFrame.Angles(math.rad(-74), math.rad(48), math.rad(12)),
+	},
+	{
+		wind = CFrame.Angles(math.rad(-42), math.rad(58), math.rad(20)),
+		strike = CFrame.Angles(math.rad(-58), math.rad(-46), math.rad(-18)),
+	},
+	{
+		wind = CFrame.Angles(math.rad(-128), math.rad(-14), math.rad(-6)),
+		strike = CFrame.Angles(math.rad(-30), math.rad(6), math.rad(4)),
+	},
+}
+
+--==========================================================================
+-- Timing. Every arc in SWINGS runs on these.
 --
--- Angles are applied to the right shoulder in TORSO space. They were written
--- for a horizontal slash rather than an overhead chop because a slash reads
--- clearly from any camera angle and does not clip through the character's own
--- head at the top of the arc.
+-- 0.47s total against a 0.6s weapon cooldown, so a swing is always finished
+-- and back on guard before the next one is allowed — the arm is never caught
+-- mid-arc by its own successor.
 --==========================================================================
 local NEUTRAL = CFrame.new()
-local WIND_UP = CFrame.Angles(math.rad(-25), math.rad(-55), math.rad(-20))
-local STRIKE = CFrame.Angles(math.rad(-75), math.rad(45), math.rad(10))
 
 local T_WIND = 0.13 -- back
 local T_STRIKE = 0.12 -- through
-local T_RECOVER = 0.22 -- and down
+local T_RECOVER = 0.22 -- and back on guard
 
 local PALETTE = {
 	steel = Color3.fromRGB(168, 176, 186),
@@ -107,7 +151,8 @@ local PALETTE = {
 
 --==========================================================================
 local swinging: { [Player]: number } = {} -- Player -> animation token
-local drawn: { [Player]: boolean } = {} -- is the weapon in hand, or on the back
+local drawn: { [Player]: boolean } = {} -- is the weapon in hand, or on the leg
+local nextSwing: { [Player]: number } = {} -- which of the three arcs comes next
 
 --[[
 	The shoulder's REST pose, remembered the first time each joint is seen.
@@ -341,10 +386,11 @@ local function gripSeat(part: BasePart): CFrame
 	return CFrame.new(along * BLADE_BIAS) * rotate
 end
 
--- Where a sheathed weapon hangs. R15 has an UpperTorso; R6 calls it Torso.
-local function back(character: Model): BasePart?
-	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-	return if torso and torso:IsA("BasePart") then torso else nil
+-- The right thigh, where a sheathed sword hangs. R15 splits the leg in two;
+-- R6 has one part for the whole thing.
+local function rightThigh(character: Model): BasePart?
+	local leg = character:FindFirstChild("RightUpperLeg") or character:FindFirstChild("Right Leg")
+	return if leg and leg:IsA("BasePart") then leg else nil
 end
 
 --==========================================================================
@@ -628,7 +674,9 @@ local function attachWeapon(player: Player, character: Model)
 
 	model.Parent = character
 
+	-- Armed and on guard from the first frame, without waiting for a keypress.
 	drawn[player] = true
+	WeaponVisualService.carry(player, true)
 
 	log:info(("armed %s with %s"):format(player.Name, tostring(def.DisplayName or weaponId)))
 end
@@ -688,17 +736,62 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 		motor.C1 = gripSeat(hilt)
 		motor.Parent = hand
 	else
-		local torso = back(character)
-		if not torso then
+		local thigh = rightThigh(character)
+		if not thigh then
 			return
 		end
-		motor.Part0 = torso
+		motor.Part0 = thigh
 		motor.C0 = SHEATH
 		motor.C1 = gripSeat(hilt)
-		motor.Parent = torso
+		motor.Parent = thigh
 	end
 
 	drawn[player] = wantDrawn
+	WeaponVisualService.carry(player, wantDrawn)
+end
+
+--[[
+	Puts the sword arm into, or out of, its carrying pose.
+
+	Half a second either way rather than a snap: drawing a sword is a movement,
+	and an arm that teleports into a guard is the thing that makes a game look
+	unfinished. It runs on the same joint the swing uses and through the same
+	token, so a swing during a draw simply takes over.
+]]
+function WeaponVisualService.carry(player: Player, armed: boolean)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local joint = rightShoulder(character)
+	if not joint then
+		return
+	end
+
+	local rest = homeOf(joint)
+	local from = joint.C0
+	local to = if armed then rest * READY else rest
+
+	local token = (swinging[player] or 0) + 1
+	swinging[player] = token
+
+	task.spawn(function()
+		local t = 0
+		local seconds = 0.45
+		while t < seconds do
+			local dt = RunService.Heartbeat:Wait()
+			if swinging[player] ~= token or not joint.Parent then
+				return
+			end
+			t = math.min(t + dt, seconds)
+			local a = t / seconds
+			joint.C0 = from:Lerp(to, 1 - (1 - a) ^ 3)
+		end
+		if swinging[player] == token then
+			joint.C0 = to
+			swinging[player] = nil
+		end
+	end)
 end
 
 function WeaponVisualService.isDrawn(player: Player): boolean
@@ -729,13 +822,37 @@ function WeaponVisualService.swing(player: Player)
 		return
 	end
 
-	local weapon = character:FindFirstChild("OldBlade")
-	local trail = weapon and weapon:FindFirstChild("Hilt") and (weapon :: any).Hilt:FindFirstChild("Swing")
+	--[[
+		The trail lives on whichever part the joint holds — the built sword
+		calls it Hilt, a supplied one is called whatever it is called, and
+		searching by name is exactly the mistake that lost the sword once
+		already.
+	]]
+	local motor = character:FindFirstChild("WeaponGrip", true)
+	local hilt = motor and motor:IsA("Motor6D") and motor.Part1
+	local trail = hilt and hilt:FindFirstChildOfClass("Trail")
+
+	--[[
+		The next swing in the cycle. Three arcs, taken in turn, so a run of
+		hits looks like someone fighting rather than someone pressing a button.
+	]]
+	local index = ((nextSwing[player] or 0) % #SWINGS) + 1
+	nextSwing[player] = index
+	local arc = SWINGS[index]
 
 	local token = (swinging[player] or 0) + 1
 	swinging[player] = token
 
-	local home = homeOf(joint)
+	--[[
+		Everything is measured from the CARRYING pose, not from rest.
+
+		A swing that starts at the character's side and ends there puts the arm
+		down after every hit, and then the ready stance is something the player
+		sees for a fraction of a second between blows. Starting and finishing on
+		guard is what makes a sequence of swings look continuous.
+	]]
+	local rest = homeOf(joint)
+	local home = if WeaponVisualService.isDrawn(player) then rest * READY else rest
 
 	task.spawn(function()
 		local function pose(from: CFrame, to: CFrame, seconds: number, ease: (number) -> number)
@@ -758,24 +875,24 @@ function WeaponVisualService.swing(player: Player)
 			return a * a
 		end
 
-		if not pose(NEUTRAL, WIND_UP, T_WIND, easeOut) then
+		if not pose(NEUTRAL, arc.wind, T_WIND, easeOut) then
 			return
 		end
 
-		if trail and trail:IsA("Trail") then
+		if trail then
 			trail.Enabled = true
 		end
-		if not pose(WIND_UP, STRIKE, T_STRIKE, easeIn) then
-			if trail and trail:IsA("Trail") then
+		if not pose(arc.wind, arc.strike, T_STRIKE, easeIn) then
+			if trail then
 				trail.Enabled = false
 			end
 			return
 		end
-		if trail and trail:IsA("Trail") then
+		if trail then
 			trail.Enabled = false
 		end
 
-		if not pose(STRIKE, NEUTRAL, T_RECOVER, easeOut) then
+		if not pose(arc.strike, NEUTRAL, T_RECOVER, easeOut) then
 			return
 		end
 
@@ -799,6 +916,7 @@ end
 ]]
 local function onCharacter(player: Player, character: Model)
 	swinging[player] = nil
+	nextSwing[player] = nil
 
 	local function tryAttach()
 		if player.Character ~= character or not character.Parent then
@@ -849,6 +967,7 @@ function WeaponVisualService.Start()
 	Players.PlayerRemoving:Connect(function(player)
 		swinging[player] = nil
 		drawn[player] = nil
+		nextSwing[player] = nil
 	end)
 
 	log:info("ready")
