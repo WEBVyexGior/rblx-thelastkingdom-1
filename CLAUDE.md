@@ -57,6 +57,19 @@ Place-specific:
 | `models/Hub` / `models/World` | `ServerStorage.Models` | per place |
 | `ui/Hub` / `ui/World` | `StarterGui.UI` | per place |
 
+### ⚠ Rojo OWNS every mapped folder
+
+Anything with a `$path` above is **deleted and rebuilt from disk every time the
+plugin connects**. `ServerStorage.Models` maps to `models/World`, which is empty
+— so anything hand-placed there is destroyed on the next reconnect. This has
+already cost the developer real work once.
+
+**Hand-made assets (toolbox models, weapons, props) go in `ServerStorage.Assets`,
+which no project file claims.** `WeaponVisualService` reads
+`ServerStorage.Assets.Weapons.<weaponId>` first and warns loudly if it finds a
+weapon in `Models` instead. Before telling anyone to place something by hand,
+check the project files for a `$path` covering it.
+
 `assets/` (Animations, Audio, Icons, Images, VFX) and `sound/` are **not** synced by Rojo — they hold raw media/reference files (source images, audio, animation data) that get uploaded to Roblox manually via Studio's Asset Manager. Once uploaded, reference the resulting `rbxassetid://` in a `scripts/Shared` or `scripts/Modules` ModuleScript rather than syncing the raw file as an instance.
 
 ## Role & Priorities

@@ -341,9 +341,20 @@ end
 	two hundred boxes approximating those still looks like two hundred boxes. A
 	single MeshPart beats it and always will.
 
-	So: drop ANYTHING at `ServerStorage.Models.Weapons.<weaponId>` — from the
+	So: drop ANYTHING at `ServerStorage.Assets.Weapons.<weaponId>` — from the
 	toolbox, from Blender, from anywhere. Nothing else changes: the same grip,
 	the same swing, the same trail if it has one.
+
+	ASSETS, NOT MODELS, AND THAT MATTERS. `world.project.json` maps
+	`ServerStorage.Models` to `models/World` on disk, which is empty — so Rojo
+	OWNS that folder and deletes everything in it that is not on disk, every
+	time the plugin connects. A sword was put there on my instructions and was
+	wiped on the next reconnect along with everything else in it.
+
+	`ServerStorage.Assets` is claimed by nothing in the project file, so Rojo
+	never touches it. Anything hand-made goes there. The old location is still
+	read, but it warns, because a warning now is cheaper than losing work
+	twice.
 
 	IT TAKES WHAT IT IS GIVEN. The first version demanded a Model with a part
 	called `Hilt`, so a perfectly good single-MeshPart sword was silently
@@ -371,10 +382,40 @@ local function biggestPart(root: Instance): BasePart?
 	return best
 end
 
+--[[
+	Where a hand-made weapon may live, best first.
+
+	`Assets` and a bare `Weapons` folder are unclaimed by the project file and
+	therefore safe from Rojo. `Models` is NOT safe and is only still read so
+	that anything already there keeps working while it is moved.
+]]
+local WEAPON_HOMES = {
+	{ path = { "Assets", "Weapons" }, safe = true },
+	{ path = { "Weapons" }, safe = true },
+	{ path = { "Models", "Weapons" }, safe = false },
+}
+
+local function findWeaponSource(weaponId: string): Instance?
+	for _, home in WEAPON_HOMES do
+		local node: Instance? = ServerStorage
+		for _, step in home.path do
+			node = node and node:FindFirstChild(step)
+		end
+		local found = node and node:FindFirstChild(weaponId)
+		if found then
+			if not home.safe then
+				log:warn(("'%s' is in ServerStorage.Models — Rojo OWNS that folder"):format(weaponId))
+				log:warn("  It will be deleted the next time the plugin connects.")
+				log:warn("  Move it to ServerStorage.Assets.Weapons, which Rojo never touches.")
+			end
+			return found
+		end
+	end
+	return nil
+end
+
 local function suppliedModel(weaponId: string): (Instance?, BasePart?)
-	local models = ServerStorage:FindFirstChild("Models")
-	local weapons = models and models:FindFirstChild("Weapons")
-	local source = weapons and weapons:FindFirstChild(weaponId)
+	local source = findWeaponSource(weaponId)
 	if not source then
 		return nil, nil
 	end
