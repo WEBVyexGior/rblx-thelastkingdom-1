@@ -575,16 +575,29 @@ local function attachWeapon(player: Player, character: Model)
 		model, hilt = buildSword()
 	end
 	model.Name = "OldBlade"
-	model.Parent = character
 
+	--[[
+		THE JOINT IS MADE BEFORE THE WEAPON ENTERS THE WORLD.
+
+		Its parts are unanchored, so the instant the model is parented into the
+		character they are subject to gravity. Wiring Part0 and Part1 first
+		means there is never a frame where the blade is loose — and a blade that
+		is loose for one frame is a blade on the floor.
+	]]
 	local motor = Instance.new("Motor6D")
 	motor.Name = "WeaponGrip"
+	motor.Part0 = hand
 	motor.Part1 = hilt
-	motor.C1 = CFrame.new()
+	motor.C1 = alignLongAxis(hilt)
+
+	local gripAt = hand:FindFirstChild("RightGripAttachment")
+	local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
+	motor.C0 = base * GRIP
 	motor.Parent = hand
 
+	model.Parent = character
+
 	drawn[player] = true
-	WeaponVisualService.setDrawn(player, drawn[player])
 
 	log:info(("armed %s with %s"):format(player.Name, tostring(def.DisplayName or weaponId)))
 end
@@ -603,14 +616,30 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 	if not character then
 		return
 	end
-	local weapon = character:FindFirstChild("OldBlade")
-	local hilt = weapon and weapon:FindFirstChild("Hilt")
-	if not hilt or not hilt:IsA("BasePart") then
+
+	--[[
+		THE JOINT KNOWS WHICH PART IT HOLDS. Ask it.
+
+		This used to look for a child called `Hilt`, which is what the built
+		sword's grip is called and is not what anybody else's is called. A
+		supplied weapon keeps its own name — `starter_sword` — so the lookup
+		failed, this function returned early, and Part0 was never set.
+
+		A Motor6D with a Part1 and no Part0 is not a joint. The blade was left
+		unanchored and holding on to nothing, and it fell out of the world in a
+		frame. Everything upstream reported success, because everything upstream
+		HAD succeeded.
+
+		Part1 is set the moment the motor is made and never changes, so there is
+		nothing here to look up and nothing to get wrong.
+	]]
+	local motor = character:FindFirstChild("WeaponGrip", true)
+	if not motor or not motor:IsA("Motor6D") then
 		return
 	end
 
-	local motor = character:FindFirstChild("WeaponGrip", true)
-	if not motor or not motor:IsA("Motor6D") then
+	local hilt = motor.Part1
+	if not hilt then
 		return
 	end
 
