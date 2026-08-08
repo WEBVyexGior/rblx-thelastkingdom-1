@@ -286,28 +286,59 @@ local function rightHand(character: Model): BasePart?
 end
 
 --[[
-	Turns a weapon so its LENGTH points out of the fist.
+	How far along the blade the fist closes.
 
-	GRIP assumes a blade that runs along its own +Y, which is how a Roblox tool
-	Handle is built and is not how a part off the toolbox necessarily is. The
-	supplied sword measured 0.8 x 0.5 x 6.6 — six and a half studs long down
-	its Z — so welding it as if the length were Y drove the whole blade
-	sideways into the character's arm, where it was attached perfectly and
-	completely invisible.
-
-	So the long axis is MEASURED and rotated onto +Y. A Motor6D resolves as
-	`Part0 * C0 * C1:Inverse()`, so putting R in C1 turns the part by R
-	inverse — and R is chosen so that R * up lands on whichever axis is
-	longest. Works for any weapon anyone ever drops in, in any orientation.
+	0 is the middle, 1 is the very end. 0.86 leaves a little of the grip and
+	the pommel behind the hand, which is where a hand actually goes on a sword.
 ]]
-local function alignLongAxis(part: BasePart): CFrame
+local BLADE_BIAS = 0.86
+
+--[[
+	Turns a weapon so its LENGTH points out of the fist, and holds it by the
+	END of that length rather than by its middle.
+
+	TWO SEPARATE MISTAKES LIVED HERE.
+
+	The first was rotation. GRIP assumes a blade running along its own +Y,
+	which is how a Roblox tool Handle is built and is not how a part off the
+	toolbox necessarily is. The supplied sword measures 0.5 x 0.3 x 5.8 — its
+	length is Z — so welding it as though the length were Y drove the whole
+	blade sideways into the character's arm.
+
+	The second was position, and it is the one that made it look like it was
+	floating behind the player. A Motor6D welds Part1 by its ORIGIN, which for
+	a part is its centre. Weld a 5.8-stud blade by its centre and 2.9 studs of
+	it hang out the back of the fist — so the moment it is turned, that half
+	swings round behind the character and the whole thing reads as floating in
+	the air rather than being held.
+
+	So: rotate the long axis onto +Y, AND move the joint down that axis to the
+	blade's base. The hand then closes near the hilt, which is the only place a
+	hand has ever gone.
+
+	A Motor6D resolves as `Part0 * C0 * C1:Inverse()`, and C1 is the joint's
+	seat ON the weapon — so `translate * rotate` in C1 puts the fist at a
+	chosen point on a chosen face of the part. Works for any weapon anyone
+	drops in, at any size, in any orientation.
+]]
+local function gripSeat(part: BasePart): CFrame
 	local s = part.Size
+
+	local rotate: CFrame
+	local along: Vector3
+
 	if s.X >= s.Y and s.X >= s.Z then
-		return CFrame.Angles(0, 0, math.rad(-90)) -- up -> +X
+		rotate = CFrame.Angles(0, 0, math.rad(-90)) -- up -> +X
+		along = Vector3.new(-s.X / 2, 0, 0)
 	elseif s.Z >= s.X and s.Z >= s.Y then
-		return CFrame.Angles(math.rad(90), 0, 0) -- up -> +Z
+		rotate = CFrame.Angles(math.rad(90), 0, 0) -- up -> +Z
+		along = Vector3.new(0, 0, -s.Z / 2)
+	else
+		rotate = CFrame.new() -- already along Y
+		along = Vector3.new(0, -s.Y / 2, 0)
 	end
-	return CFrame.new() -- already along Y
+
+	return CFrame.new(along * BLADE_BIAS) * rotate
 end
 
 -- Where a sheathed weapon hangs. R15 has an UpperTorso; R6 calls it Torso.
@@ -588,7 +619,7 @@ local function attachWeapon(player: Player, character: Model)
 	motor.Name = "WeaponGrip"
 	motor.Part0 = hand
 	motor.Part1 = hilt
-	motor.C1 = alignLongAxis(hilt)
+	motor.C1 = gripSeat(hilt)
 
 	local gripAt = hand:FindFirstChild("RightGripAttachment")
 	local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
@@ -654,7 +685,7 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 		local base = if gripAt and gripAt:IsA("Attachment") then gripAt.CFrame else CFrame.new(0, -0.9, 0)
 		motor.Part0 = hand
 		motor.C0 = base * GRIP
-		motor.C1 = alignLongAxis(hilt)
+		motor.C1 = gripSeat(hilt)
 		motor.Parent = hand
 	else
 		local torso = back(character)
@@ -663,7 +694,7 @@ function WeaponVisualService.setDrawn(player: Player, wantDrawn: boolean)
 		end
 		motor.Part0 = torso
 		motor.C0 = SHEATH
-		motor.C1 = alignLongAxis(hilt)
+		motor.C1 = gripSeat(hilt)
 		motor.Parent = torso
 	end
 
