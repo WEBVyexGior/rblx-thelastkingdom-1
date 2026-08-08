@@ -476,6 +476,20 @@ local function suppliedModel(weaponId: string): (Instance?, BasePart?)
 			d.CanTouch = false
 			d.Massless = true
 			d.Anchored = false
+		elseif d:IsA("JointInstance") or d:IsA("WeldConstraint") then
+			--[[
+				OLD JOINTS COME OUT, and this is why the sword was invisible.
+
+				The supplied model had a Weld inside it from whatever Tool it
+				came out of. Clone a subtree and any joint whose Part0 points
+				OUTSIDE that subtree keeps pointing at the original — so the
+				cloned blade was faithfully welded to the anchored copy still
+				sitting in ServerStorage, dragged out of the world, and gone.
+
+				Attaching a weapon is this service's job. Anything the model
+				brought with it is somebody else's rig.
+			]]
+			d:Destroy()
 		elseif d:IsA("LuaSourceContainer") then
 			--[[
 				SCRIPTS COME OUT. A toolbox model is somebody else's code, and
